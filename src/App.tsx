@@ -7,12 +7,27 @@ import Home from './pages/Home';
 // Create a WebSocket context to be used throughout the app
 export const SocketContext = createContext<Socket | null>(null);
 
+// Check if we're in a preview/demo environment
+const isPreviewMode = () => {
+  return window.location.hostname.includes('lovable.app') || 
+         window.location.hostname.includes('localhost') ||
+         !window.location.hostname.includes('your-production-domain.com');
+};
+
 function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [demoMode, setDemoMode] = useState<boolean>(false);
 
   useEffect(() => {
-    // Initialize socket connection
+    // Check if we're in preview mode
+    if (isPreviewMode()) {
+      console.log('Running in demo mode - backend connections disabled');
+      setDemoMode(true);
+      return;
+    }
+
+    // Initialize socket connection (only in production/development with backend)
     const initializeSocket = async () => {
       try {
         // Make sure the socket server is running
@@ -105,7 +120,7 @@ function App() {
 
   return (
     <SocketContext.Provider value={socket}>
-      <Home />
+      <Home demoMode={demoMode} />
     </SocketContext.Provider>
   );
 }

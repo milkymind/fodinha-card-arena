@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/Home.module.css';
 import Game from '../components/Game';
+import DemoGame from '../components/DemoGame';
 
 interface LobbyInfo {
   players: { id: number; name: string }[];
@@ -8,7 +9,11 @@ interface LobbyInfo {
   lives: number;
 }
 
-export default function Home() {
+interface HomeProps {
+  demoMode?: boolean;
+}
+
+export default function Home({ demoMode = false }: HomeProps) {
   const [gameId, setGameId] = useState<string>('');
   const [playerId, setPlayerId] = useState<number | null>(null);
   const [playerName, setPlayerName] = useState<string>('');
@@ -22,6 +27,30 @@ export default function Home() {
   const createGame = async () => {
     try {
       setError('');
+      
+      // Demo mode - simulate creating a game without backend
+      if (demoMode) {
+        console.log('Demo mode: Creating mock game');
+        const mockGameId = 'DEMO' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const mockPlayerId = 1;
+        const mockLobby = {
+          players: [{ id: mockPlayerId, name: playerName || 'Demo Player' }],
+          maxPlayers: 4,
+          lives: lives
+        };
+        
+        setGameId(mockGameId);
+        setPlayerId(mockPlayerId);
+        setLobbyInfo(mockLobby);
+        setError('');
+        
+        // Auto-start the game after a short delay in demo mode
+        setTimeout(() => {
+          setGameStarted(true);
+        }, 2000);
+        return;
+      }
+      
       const response = await fetch('/api/create-game', {
         method: 'POST',
         headers: {
@@ -50,6 +79,32 @@ export default function Home() {
   const joinGame = async (id: string) => {
     try {
       setError('');
+      
+      // Demo mode - simulate joining a game
+      if (demoMode) {
+        console.log('Demo mode: Joining mock game');
+        const mockPlayerId = 2;
+        const mockLobby = {
+          players: [
+            { id: 1, name: 'Demo Host' },
+            { id: mockPlayerId, name: playerName || 'Demo Player' }
+          ],
+          maxPlayers: 4,
+          lives: 3
+        };
+        
+        setPlayerId(mockPlayerId);
+        setGameId(id);
+        setLobbyInfo(mockLobby);
+        setError('');
+        
+        // Auto-start the game after a short delay in demo mode
+        setTimeout(() => {
+          setGameStarted(true);
+        }, 2000);
+        return;
+      }
+      
       const response = await fetch(`/api/join-game/${id}`, {
         method: 'POST',
         headers: {
@@ -130,8 +185,10 @@ export default function Home() {
 
   // Show Game component if started
   if ((gameId && playerId) && gameStarted) {
+    // Use DemoGame in demo mode, regular Game otherwise
+    const GameComponent = demoMode ? DemoGame : Game;
     return (
-      <Game
+      <GameComponent
         gameId={gameId}
         playerId={playerId}
         onLeaveGame={handleLeaveGame}
@@ -173,6 +230,19 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Fodinha Card Game</h1>
+      {demoMode && (
+        <div style={{ 
+          background: '#e3f2fd', 
+          color: '#1976d2', 
+          padding: '12px', 
+          margin: '16px 0', 
+          borderRadius: '8px',
+          border: '1px solid #bbdefb',
+          textAlign: 'center'
+        }}>
+          🎮 <strong>Demo Mode</strong> - This is a preview version. Try creating or joining a game to see the simulated gameplay!
+        </div>
+      )}
       {error && (
         <div className={styles.error}>
           {error}

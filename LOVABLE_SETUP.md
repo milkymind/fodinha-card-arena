@@ -42,9 +42,26 @@ The project now supports both Next.js (original) and Vite (for Lovable):
 - **Vite Development**: `npm run dev:vite` (Lovable compatible)
 - **Lovable Build**: `npm run build:dev` (required by Lovable)
 
+## Demo Mode for Lovable Preview
+
+The project automatically detects when running in Lovable's preview environment and switches to **Demo Mode**:
+
+- **Automatic Detection**: Checks if the hostname includes 'lovable.app' 
+- **Mock Backend**: Simulates game creation, joining, and gameplay without requiring a real server
+- **Interactive Demo**: Users can create games, place bets, and play cards with AI players
+- **Full UI Showcase**: Demonstrates all game states, cards, betting phases, and player interactions
+
+### Demo Features
+- Create mock games with random game IDs
+- Simulate multiplayer with AI opponents  
+- Interactive betting and card playing
+- Visual feedback and game state transitions
+- Error-free preview experience
+
 ## Notes
 
 - The original Next.js structure remains intact
 - The `src/` directory contains Vite-compatible versions of the components
 - Both implementations share the same backend API structure
-- Socket.io configuration is maintained in both setups 
+- Socket.io configuration is maintained in both setups
+- Demo mode only activates in preview environments 
