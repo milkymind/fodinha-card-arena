@@ -47,17 +47,37 @@ function App() {
       try {
         // Try to ping the backend with timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
         
-        const response = await fetch('/api/health', { 
-          method: 'GET',
-          signal: controller.signal
-        });
+        // Try multiple endpoints to check backend availability
+        const endpoints = ['/api/health', '/api/socket'];
+        let backendAvailable = false;
+        
+        for (const endpoint of endpoints) {
+          try {
+            const response = await fetch(endpoint, { 
+              method: 'GET',
+              signal: controller.signal,
+              headers: {
+                'Cache-Control': 'no-cache'
+              }
+            });
+            
+            if (response.ok || response.status === 404) {
+              // 404 is acceptable for health check - means server is responding
+              backendAvailable = true;
+              break;
+            }
+          } catch (endpointError) {
+            // Continue to next endpoint
+            continue;
+          }
+        }
         
         clearTimeout(timeoutId);
         
-        if (!response.ok) {
-          throw new Error('Backend not available');
+        if (!backendAvailable) {
+          throw new Error('No backend endpoints available');
         }
         
         console.log('Backend available, initializing socket connection');
@@ -114,6 +134,15 @@ function App() {
         socketConnection.on('connect_error', (error) => {
           console.error('Socket connection error:', error);
           setSocketConnected(false);
+          
+          // If connection fails, fall back to demo mode
+          setTimeout(() => {
+            if (!socketConnected) {
+              console.log('Socket connection failed, falling back to demo mode');
+              setDemoMode(true);
+              socketConnection.disconnect();
+            }
+          }, 2000);
         });
         
         socketConnection.on('reconnect', (attemptNumber) => {

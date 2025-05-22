@@ -65,10 +65,27 @@ The project intelligently detects the environment and switches between real back
 3. **Graceful Fallback**: Shows demo mode if backend connection fails
 4. **User Feedback**: Loading states and clear mode indicators
 
+## Current Status
+
+### ✅ Frontend Deployment
+- Frontend is successfully deployed via Lovable
+- Smart backend detection is working
+- Graceful fallback to demo mode implemented
+
+### ⚠️ Backend Deployment Needed
+The backend (Node.js server) needs to be deployed separately for full functionality:
+
+1. **Current State**: Frontend detects no backend and shows demo mode
+2. **Next Step**: Deploy backend to Railway/Vercel/Heroku
+3. **Final Step**: Update frontend to point to deployed backend
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+
 ## Notes
 
 - The original Next.js structure remains intact
 - The `src/` directory contains Vite-compatible versions of the components
 - Both implementations share the same backend API structure
 - Socket.io configuration is maintained in both setups
-- Demo mode only activates in preview environments 
+- Demo mode only activates when backend is unavailable
+- Added health check endpoint (`/api/health`) for backend detection 
