@@ -42,21 +42,28 @@ The project now supports both Next.js (original) and Vite (for Lovable):
 - **Vite Development**: `npm run dev:vite` (Lovable compatible)
 - **Lovable Build**: `npm run build:dev` (required by Lovable)
 
-## Demo Mode for Lovable Preview
+## Smart Backend Detection & Demo Mode
 
-The project automatically detects when running in Lovable's preview environment and switches to **Demo Mode**:
+The project intelligently detects the environment and switches between real backend and demo mode:
 
-- **Automatic Detection**: Checks if the hostname includes 'lovable.app' 
-- **Mock Backend**: Simulates game creation, joining, and gameplay without requiring a real server
-- **Interactive Demo**: Users can create games, place bets, and play cards with AI players
-- **Full UI Showcase**: Demonstrates all game states, cards, betting phases, and player interactions
+- **Smart Detection**: Only enables demo mode for Lovable preview URLs (not published sites)
+- **Backend Health Check**: Attempts to connect to the real backend before falling back to demo
+- **Automatic Fallback**: Gracefully switches to demo mode if backend is unavailable
+- **Production Ready**: Published games automatically connect to real backend when available
+- **Manual Override**: Add `?demo=true` to any URL to force demo mode for testing
 
-### Demo Features
+### Demo Features (when backend unavailable)
 - Create mock games with random game IDs
 - Simulate multiplayer with AI opponents  
 - Interactive betting and card playing
 - Visual feedback and game state transitions
 - Error-free preview experience
+
+### Backend Detection Logic
+1. **Preview Mode**: Activates for Lovable preview URLs containing 'preview'
+2. **Backend Health Check**: Tries `/api/health` endpoint with 5-second timeout
+3. **Graceful Fallback**: Shows demo mode if backend connection fails
+4. **User Feedback**: Loading states and clear mode indicators
 
 ## Notes
 

@@ -11,9 +11,10 @@ interface LobbyInfo {
 
 interface HomeProps {
   demoMode?: boolean;
+  isCheckingBackend?: boolean;
 }
 
-export default function Home({ demoMode = false }: HomeProps) {
+export default function Home({ demoMode = false, isCheckingBackend = false }: HomeProps) {
   const [gameId, setGameId] = useState<string>('');
   const [playerId, setPlayerId] = useState<number | null>(null);
   const [playerName, setPlayerName] = useState<string>('');
@@ -230,7 +231,20 @@ export default function Home({ demoMode = false }: HomeProps) {
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Fodinha Card Game</h1>
-      {demoMode && (
+      {isCheckingBackend && (
+        <div style={{ 
+          background: '#f3e5f5', 
+          color: '#7b1fa2', 
+          padding: '12px', 
+          margin: '16px 0', 
+          borderRadius: '8px',
+          border: '1px solid #ce93d8',
+          textAlign: 'center'
+        }}>
+          🔄 <strong>Connecting...</strong> - Checking server availability...
+        </div>
+      )}
+      {demoMode && !isCheckingBackend && (
         <div style={{ 
           background: '#e3f2fd', 
           color: '#1976d2', 
@@ -285,10 +299,10 @@ export default function Home({ demoMode = false }: HomeProps) {
         <div className={styles.inputGroup}>
           <button 
             onClick={createGame} 
-            disabled={!playerName.trim()}
+            disabled={!playerName.trim() || isCheckingBackend}
             className={styles.button}
           >
-            Create New Game
+            {isCheckingBackend ? 'Connecting...' : 'Create New Game'}
           </button>
         </div>
         <div className={styles.inputGroup}>
@@ -298,13 +312,14 @@ export default function Home({ demoMode = false }: HomeProps) {
             value={joinGameId}
             onChange={(e) => setJoinGameId(e.target.value.toUpperCase())}
             className={styles.input}
+            disabled={isCheckingBackend}
           />
           <button 
             onClick={() => joinGame(joinGameId)} 
-            disabled={!playerName.trim() || !joinGameId.trim()}
+            disabled={!playerName.trim() || !joinGameId.trim() || isCheckingBackend}
             className={styles.button}
           >
-            Join Game
+            {isCheckingBackend ? 'Connecting...' : 'Join Game'}
           </button>
         </div>
       </div>

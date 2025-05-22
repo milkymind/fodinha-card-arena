@@ -9,15 +9,29 @@ export const SocketContext = createContext<Socket | null>(null);
 
 // Check if we're in a preview/demo environment
 const isPreviewMode = () => {
-  return window.location.hostname.includes('lovable.app') || 
-         window.location.hostname.includes('localhost') ||
-         !window.location.hostname.includes('your-production-domain.com');
+  // Only enable demo mode for specific preview URLs or when explicitly requested
+  const hostname = window.location.hostname;
+  const pathname = window.location.pathname;
+  
+  // Check for Lovable preview URLs (these typically have 'preview' in the URL)
+  const isLovablePreview = hostname.includes('lovable.app') && 
+    (hostname.includes('preview') || pathname.includes('preview'));
+  
+  // Check for localhost development
+  const isLocalhost = hostname.includes('localhost') || hostname === '127.0.0.1';
+  
+  // Check for explicit demo mode via URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const forceDemoMode = urlParams.get('demo') === 'true';
+  
+  return isLovablePreview || isLocalhost || forceDemoMode;
 };
 
 function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [demoMode, setDemoMode] = useState<boolean>(false);
+  const [isCheckingBackend, setIsCheckingBackend] = useState<boolean>(false);
 
   useEffect(() => {
     // Check if we're in preview mode
@@ -27,7 +41,36 @@ function App() {
       return;
     }
 
-    // Initialize socket connection (only in production/development with backend)
+    // Try to connect to backend, fallback to demo mode if unavailable
+    const checkBackendAvailability = async () => {
+      setIsCheckingBackend(true);
+      try {
+        // Try to ping the backend with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        const response = await fetch('/api/health', { 
+          method: 'GET',
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error('Backend not available');
+        }
+        
+        console.log('Backend available, initializing socket connection');
+        initializeSocket();
+      } catch (error) {
+        console.log('Backend not available, falling back to demo mode:', error);
+        setDemoMode(true);
+      } finally {
+        setIsCheckingBackend(false);
+      }
+    };
+
+    // Initialize socket connection (only when backend is available)
     const initializeSocket = async () => {
       try {
         // Make sure the socket server is running
@@ -103,10 +146,8 @@ function App() {
       }
     };
 
-    // Only initialize if we don't have a socket yet
-    if (!socket) {
-      initializeSocket();
-    }
+    // Check backend availability and initialize accordingly
+    checkBackendAvailability();
 
     // Clean up on unmount
     return () => {
@@ -120,7 +161,7 @@ function App() {
 
   return (
     <SocketContext.Provider value={socket}>
-      <Home demoMode={demoMode} />
+      <Home demoMode={demoMode} isCheckingBackend={isCheckingBackend} />
     </SocketContext.Provider>
   );
 }
