@@ -37,6 +37,7 @@ interface GameState {
   inactive_players?: number[];
   tie_resolved_by_tiebreaker?: boolean;
   winning_card_played_by?: number;
+  cancelled_cards?: [number, string][];
 }
 
 export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
@@ -1093,6 +1094,15 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     }
   };
 
+  // Function to determine if a card is cancelled in this round
+  const isCancelledCard = (playerIdOfCard: number, card: string): boolean => {
+    if (!gameState?.cancelled_cards) return false;
+    
+    return gameState.cancelled_cards.some(([pid, cardValue]) => 
+      pid === playerIdOfCard && cardValue === card
+    );
+  };
+
   // Function to determine if a card is the winning card in this round
   const isWinningCard = (playerIdOfCard: number, card: string): boolean => {
     if (!gameState) return false;
@@ -1289,6 +1299,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
                     ${getCardColorClass(card)} 
                     ${lastPlayedCard?.playerId === pid && lastPlayedCard?.card === card ? styles.lastPlayed : ''}
                     ${isWinningCard(pid, card) ? styles.winningCard : ''}
+                    ${isCancelledCard(pid, card) ? styles.cancelledCard : ''}
                   `}>
                     <div className={styles.cardContent}>
                       <span className={styles.cardValue}>{formatCard(card).value}</span>
@@ -1296,10 +1307,16 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
                         {formatCard(card).suit}
                       </span>
                     </div>
+                    {isCancelledCard(pid, card) && (
+                      <div className={styles.cancellationOverlay}>
+                        <span className={styles.cancellationX}>✗</span>
+                      </div>
+                    )}
                   </div>
                   <div className={styles.playerLabel}>
                     {gameState.player_names[pid]}
                     {isWinningCard(pid, card) && <span className={styles.winnerLabel}>👑</span>}
+                    {isCancelledCard(pid, card) && <span className={styles.cancelledLabel}>Cancelled</span>}
                   </div>
                 </div>
               ))}

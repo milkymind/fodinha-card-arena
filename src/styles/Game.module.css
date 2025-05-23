@@ -651,4 +651,41 @@
   pointer-events: none;
 }
 
-/* REMOVED CONNECTION-RELATED STYLES - see CONNECTION_ERROR_BACKUP.md for reference */ 
+/* REMOVED CONNECTION-RELATED STYLES - see CONNECTION_ERROR_BACKUP.md for reference */
+
+/* Add styles for cancelled cards */
+.cancelledCard {
+  position: relative;
+  opacity: 0.6;
+  filter: grayscale(50%);
+  border-color: #dc3545 !important;
+}
+
+.cancellationOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(220, 53, 69, 0.3);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.cancellationX {
+  font-size: 4rem;
+  color: #dc3545;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  animation: pulse 2s infinite;
+}
+
+.cancelledLabel {
+  color: #dc3545;
+  font-size: 0.8rem;
+  font-style: italic;
+  margin-left: 5px;
+} 

@@ -40,6 +40,7 @@ interface GameState {
   tie_in_previous_round?: boolean; // Track if there was a tie in previous round
   tie_resolved_by_tiebreaker?: boolean; // Track if the tie was resolved by the tiebreaker
   winning_card_played_by?: number; // Track the winning card played by
+  cancelled_cards?: [number, string][]; // Track which cards are cancelled in the current round
 }
 
 function getCardValue(card: string): string {
@@ -226,6 +227,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Only clear the mesa (table) after the delay
         gameState.mesa = [];
         gameState.cards_played_this_round = 0;
+        gameState.cancelled_cards = []; // Clear cancelled cards for new round
         
         // For multi-round hands within the same hand, the dealer rotation doesn't change
         // First player should be the one after the dealer (consistent with the rules)
@@ -318,70 +320,138 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // If all active players have played, resolve the trick
     const activePlayersCount = gameState.players.filter(p => !gameState.eliminados.includes(p)).length;
     if (gameState.mesa.length === activePlayersCount) {
-      // Find the highest card
-      let highestStrength = -1;
-      let winners: [number, string][] = [];
+      console.log('All players have played cards, determining round winner...');
+      console.log('Cards on table:', gameState.mesa);
+      
+      // Step 1: Group cards by their strength value
+      const cardsByStrength = new Map<number, [number, string][]>();
       
       for (const [pid, cardPlayed] of gameState.mesa) {
         const strength = getCardStrength(cardPlayed, gameState.manilha);
         
-        if (strength > highestStrength) {
-          highestStrength = strength;
-          winners = [[pid, cardPlayed]];
-        } else if (strength === highestStrength) {
-          winners.push([pid, cardPlayed]);
+        if (!cardsByStrength.has(strength)) {
+          cardsByStrength.set(strength, []);
+        }
+        cardsByStrength.get(strength)!.push([pid, cardPlayed]);
+      }
+      
+      console.log('Cards grouped by strength:', Object.fromEntries(cardsByStrength));
+      
+      // Step 2: Cancel out cards that have the same strength (value)
+      const remainingCards: [number, string][] = [];
+      const cancelledCards: [number, string][] = [];
+      
+      for (const [strength, cards] of Array.from(cardsByStrength.entries())) {
+        if (cards.length === 1) {
+          // Only one card with this strength, it remains
+          remainingCards.push(cards[0]);
+        } else {
+          // Multiple cards with same strength - they cancel each other out
+          console.log(`Cancelling ${cards.length} cards with strength ${strength}:`, cards);
+          cancelledCards.push(...cards);
         }
       }
       
-      // Handle ties with suit order
+      // Store cancelled cards in game state for UI display
+      gameState.cancelled_cards = cancelledCards;
+      
+      console.log('Remaining non-cancelled cards:', remainingCards);
+      console.log('Cancelled cards:', cancelledCards);
+      
+      // Step 3: Determine winner from remaining cards
       let winner: number = gameState.players[0]; // Default in case of unexpected errors
       let isTie = false;
       
-      if (winners.length > 1) {
+      if (remainingCards.length === 0) {
+        // All cards cancelled out - this is a true tie
+        console.log('All cards cancelled out - true tie!');
+        isTie = true;
+        
         // Check if this is the last round of the entire hand
         const isLastRoundOfHand = gameState.current_round === gameState.cartas;
         
         if (isLastRoundOfHand) {
-          // This is the last round of the hand, we must break the tie using suit order
-          console.log(`Breaking tie in final round using suits`);
-          let highestSuit = -1;
-          
-          for (const [pid, cardPlayed] of winners) {
-            const suit = getCardSuit(cardPlayed);
-            // Use ORDEM_NAIPE_MANILHA for the suit tiebreaker - where ♣ is strongest
-            const suitValue = ORDEM_NAIPE_MANILHA[suit as keyof typeof ORDEM_NAIPE_MANILHA] || 0;
-            
-            if (suitValue > highestSuit) {
-              highestSuit = suitValue;
-              winner = pid;
-            }
-          }
-          console.log(`Tie broken: winner is player ${winner} with suit value ${highestSuit}`);
-          // Set a flag to indicate this was a tie resolved by tiebreaker
+          // In the final round, we must determine a winner even if all cards cancel
+          // Use the last player to play as the winner (standard tiebreaker rule)
+          const lastPlayerId = gameState.mesa[gameState.mesa.length - 1][0];
+          winner = lastPlayerId;
+          console.log(`Final round tie broken by last player rule: player ${winner}`);
           gameState.tie_resolved_by_tiebreaker = true;
-          // Set the winning card player for UI highlighting
           gameState.winning_card_played_by = winner;
+          isTie = false; // We found a winner, so not a tie anymore
         } else {
-          // This is not the final round, we increase multiplier but still complete the round
-          console.log(`Tie in non-final round. Increasing multiplier and completing round.`);
+          // Not final round, increase multiplier
+          console.log('Increasing multiplier for next round');
           gameState.multiplicador = (gameState.multiplicador || 1) + 1;
-          isTie = true;
           
-          // In a tie, the last player to play will start the next round
+          // Last player to play starts the next round
           const lastPlayerId = gameState.mesa[gameState.mesa.length - 1][0];
           winner = lastPlayerId;
           gameState.tie_in_previous_round = true;
-          
-          // In a tie, we don't want to highlight any card as the winner
           gameState.winning_card_played_by = undefined;
         }
-      } else if (winners.length === 1) {
-        winner = winners[0][0];
+      } else if (remainingCards.length === 1) {
+        // Clear winner
+        winner = remainingCards[0][0];
+        console.log(`Clear winner: player ${winner} with card ${remainingCards[0][1]}`);
         gameState.tie_in_previous_round = false;
         gameState.tie_resolved_by_tiebreaker = false;
-        
-        // Set the winning card player for UI highlighting
         gameState.winning_card_played_by = winner;
+      } else {
+        // Multiple cards remain - find the highest strength among remaining cards
+        let highestStrength = -1;
+        let winners: [number, string][] = [];
+        
+        for (const [pid, cardPlayed] of remainingCards) {
+          const strength = getCardStrength(cardPlayed, gameState.manilha);
+          
+          if (strength > highestStrength) {
+            highestStrength = strength;
+            winners = [[pid, cardPlayed]];
+          } else if (strength === highestStrength) {
+            winners.push([pid, cardPlayed]);
+          }
+        }
+        
+        if (winners.length === 1) {
+          winner = winners[0][0];
+          console.log(`Winner among remaining cards: player ${winner}`);
+          gameState.tie_in_previous_round = false;
+          gameState.tie_resolved_by_tiebreaker = false;
+          gameState.winning_card_played_by = winner;
+        } else {
+          // Multiple winners among remaining cards - use suit tiebreaker
+          const isLastRoundOfHand = gameState.current_round === gameState.cartas;
+          
+          if (isLastRoundOfHand) {
+            // Final round - break tie using suit order
+            console.log('Breaking tie among remaining cards using suits');
+            let highestSuit = -1;
+            
+            for (const [pid, cardPlayed] of winners) {
+              const suit = getCardSuit(cardPlayed);
+              const suitValue = ORDEM_NAIPE_MANILHA[suit as keyof typeof ORDEM_NAIPE_MANILHA] || 0;
+              
+              if (suitValue > highestSuit) {
+                highestSuit = suitValue;
+                winner = pid;
+              }
+            }
+            console.log(`Tie broken by suit: winner is player ${winner}`);
+            gameState.tie_resolved_by_tiebreaker = true;
+            gameState.winning_card_played_by = winner;
+          } else {
+            // Not final round - this becomes a tie
+            console.log('Tie among remaining cards - increasing multiplier');
+            gameState.multiplicador = (gameState.multiplicador || 1) + 1;
+            isTie = true;
+            
+            const lastPlayerId = gameState.mesa[gameState.mesa.length - 1][0];
+            winner = lastPlayerId;
+            gameState.tie_in_previous_round = true;
+            gameState.winning_card_played_by = undefined;
+          }
+        }
       }
       
       // Award trick to winner - only if there was a clear winner

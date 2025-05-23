@@ -124,19 +124,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (lastWinner) {
           console.log(`Game ${id}: Round winner ${lastWinner} will start next round`);
           
-          // Find the index of the winner in the players array
-          const winnerIdx = lobby.gameState.players.indexOf(lastWinner);
+          // Only include active (non-eliminated) players in the order
+          const activePlayers = lobby.gameState.players.filter((p: number) => !lobby.gameState.eliminados.includes(p));
+          
+          // Find the index of the winner in the active players array
+          const winnerIdx = activePlayers.indexOf(lastWinner);
           if (winnerIdx !== -1) {
             lobby.gameState.current_player_idx = 0;
             
-            // Reorder the players so the winner goes first
+            // Reorder the active players so the winner goes first
             const newOrder = [];
-            for (let i = 0; i < lobby.gameState.players.length; i++) {
-              const idx = (winnerIdx + i) % lobby.gameState.players.length;
-              newOrder.push(lobby.gameState.players[idx]);
+            for (let i = 0; i < activePlayers.length; i++) {
+              const idx = (winnerIdx + i) % activePlayers.length;
+              newOrder.push(activePlayers[idx]);
             }
             lobby.gameState.ordem_jogada = newOrder;
+            console.log(`Game ${id}: New turn order for round ${lobby.gameState.current_round}: ${newOrder.join(', ')}`);
+          } else {
+            // Fallback: if winner is not found in active players, use active players in current order
+            console.error(`Winner ${lastWinner} not found in active players. Using active players as fallback.`);
+            lobby.gameState.ordem_jogada = activePlayers;
+            lobby.gameState.current_player_idx = 0;
           }
+        } else {
+          // No last winner, just use active players in current order
+          const activePlayers = lobby.gameState.players.filter((p: number) => !lobby.gameState.eliminados.includes(p));
+          lobby.gameState.ordem_jogada = activePlayers;
+          lobby.gameState.current_player_idx = 0;
         }
         
         // Reset the round_over_timestamp 
