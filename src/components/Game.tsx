@@ -162,17 +162,30 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     const onDisconnect = (reason: string) => {
       console.log(`Socket disconnected: ${reason}`);
       
-      // Don't show error for normal closures
+      // Don't show error for normal closures or intentional disconnects
       if (reason !== "io client disconnect" && reason !== "io server disconnect") {
-        setConnectionError(true);
-        setConnectionErrorTime(Date.now());
-        setError('Connection lost. Attempting to reconnect...');
-        setNotificationType('error');
+        // Only show connection error if polling is also failing
+        // Give a grace period before showing the error
+        setTimeout(() => {
+          // Check if polling is working by seeing if we've had recent successful game state updates
+          const now = Date.now();
+          const timeSinceLastPoll = now - lastPollingTime;
+          const timeSinceLastActivity = now - lastActivityTime;
+          
+          // Only show connection error if:
+          // 1. We haven't had successful polling in the last 30 seconds
+          // 2. And we haven't had any user activity indicating the game is working
+          if (timeSinceLastPoll > 30000 && timeSinceLastActivity > 10000) {
+            setConnectionError(true);
+            setConnectionErrorTime(Date.now());
+            setError('Connection lost. Game continues via backup connection.');
+            setNotificationType('error');
+          }
+        }, 5000); // 5 second grace period
       }
       
       // Attempt reconnection if not intentionally disconnected
       if (reason !== "io client disconnect") {
-        // Socket.io will auto-reconnect, we'll listen for the connect event
         console.log("Socket will attempt to reconnect automatically");
       }
     };
@@ -180,10 +193,20 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     // Handle socket connection errors
     const onConnectError = (error: Error) => {
       console.error("Socket connection error:", error);
-      setConnectionError(true);
-      setConnectionErrorTime(Date.now());
-      setError('Connection error. The game will try to reconnect automatically.');
-      setNotificationType('error');
+      
+      // Only show error if this is a persistent issue
+      setTimeout(() => {
+        const now = Date.now();
+        const timeSinceLastPoll = now - lastPollingTime;
+        
+        // Only show error if polling isn't working either
+        if (timeSinceLastPoll > 30000) {
+          setConnectionError(true);
+          setConnectionErrorTime(Date.now());
+          setError('Connection error. Game continues via backup connection.');
+          setNotificationType('error');
+        }
+      }, 3000); // 3 second grace period
     };
     
     // Register event handlers
@@ -628,80 +651,71 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       try {
         const now = Date.now();
         
-        // More conservative polling - only poll if all conditions are met:
-        // 1. We haven't polled in the last 15 seconds
-        // 2. We haven't received a socket update in 12 seconds
+        // Much more conservative polling - only poll if all conditions are met:
+        // 1. We haven't polled in the last 30 seconds (increased from 15s)
+        // 2. We haven't received a socket update in 45 seconds (increased from 12s)
         // 3. We're not currently processing a game state update
-        // 4. We haven't performed a user action in the last 5 seconds
+        // 4. We haven't performed a user action in the last 10 seconds (increased from 5s)
         // 5. We're not reconnecting
+        // 6. Socket is either not connected or not available
+        // 7. No recent successful user actions (if REST API is working, don't poll)
         const lastUserAction = Math.max(...Object.values(lastRequestTimestamps), 0);
-        if (!isProcessingGameState && 
+        const recentSuccessfulAction = now - lastUserAction < 30000; // Recent action in last 30s
+        
+        const shouldPoll = !isProcessingGameState && 
             !isReconnecting.current &&
-            now - lastPollingTime > 15000 && 
-            now - lastSocketActivity > 12000 &&
-            now - lastUserAction > 5000) {
-          
-          console.log("Polling game state via API");
+            !recentSuccessfulAction && // Don't poll if user actions are working
+            now - lastPollingTime > 30000 && 
+            now - lastSocketActivity > 45000 &&
+            now - lastUserAction > 10000 &&
+            (!socket || !socket.connected);
+            
+        if (shouldPoll) {
+          console.log("Polling game state (WebSocket unavailable, no recent actions)");
           setLastPollingTime(now);
-
-          // Add a random ID to prevent browser caching
+          
           const cacheParam = Math.random().toString(36).substring(7);
           const response = await fetch(`/api/game-state/${gameId}?nocache=${cacheParam}`, {
             headers: {
               'X-Player-ID': playerId.toString(),
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0'
+              'Cache-Control': 'no-cache',
+              'X-Request-Source': 'polling'
             }
           });
           
           if (response.ok) {
             const data = await response.json();
             if (data.status === 'success' && data.game_state) {
-              console.log("Successfully polled game state");
+              setGameState(data.game_state);
+              updateGameStatus(data.game_state);
+              setLastActivityTime(now);
               
-              // Only update if we have a different state than current
-              const currentStateJson = JSON.stringify(gameState);
-              const newStateJson = JSON.stringify(data.game_state);
-              
-              if (currentStateJson !== newStateJson) {
-                console.log("Game state changed, updating...");
-                setIsProcessingGameState(true);
-                
-                setGameState(data.game_state);
-                updateGameStatus(data.game_state);
-                setPrevRound(data.game_state.current_round || null);
-                setPrevHand(data.game_state.current_hand || null);
-                setLastActivityTime(Date.now());
-                
-                // Mark as done processing after a short delay
-                setTimeout(() => {
-                  setIsProcessingGameState(false);
-                }, 100);
+              // Clear connection error since polling is working
+              if (connectionError) {
+                setConnectionError(false);
+                setError('');
               }
-            } else {
-              console.error("Received invalid game state in polling response:", data);
             }
-          } else {
-            console.error("API polling failed with status:", response.status);
           }
+        } else if (recentSuccessfulAction) {
+          console.log("Skipping polling - recent user action indicates game is working");
         }
       } catch (error) {
         console.error("Error polling game state:", error);
       }
       
-      // Poll again in 15 seconds (increased from 10s)
-      timerId = setTimeout(pollGameState, 15000);
+      // Poll again in 30 seconds (increased from 15s)
+      timerId = setTimeout(pollGameState, 30000);
     };
     
-    // Start polling with a longer initial delay
-    timerId = setTimeout(pollGameState, 15000);
+    // Start polling with a longer initial delay (60s instead of 15s)
+    timerId = setTimeout(pollGameState, 60000);
     
     // Clean up
     return () => {
       if (timerId) clearTimeout(timerId);
     };
-  }, [gameId, playerId, gameState, lastActivityTime, lastSocketActivity, lastPollingTime, isProcessingGameState, lastRequestTimestamps]);
+  }, [gameId, playerId, gameState, lastActivityTime, lastSocketActivity, lastPollingTime, isProcessingGameState, lastRequestTimestamps, socket, connectionError]);
 
   // Update last activity time when user interacts with the page
   useEffect(() => {
@@ -1365,6 +1379,25 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
   // Render connection error UI with manual reconnect button
   const renderConnectionError = () => {
     if (!connectionError) return null;
+    
+    // Check if the game is actually working (recent successful actions or polling)
+    const now = Date.now();
+    const timeSinceLastActivity = now - lastActivityTime;
+    const timeSinceLastPoll = now - lastPollingTime;
+    
+    // If we've had recent activity or successful polling, don't show the error as prominently
+    const isGameWorking = timeSinceLastActivity < 30000 || timeSinceLastPoll < 60000;
+    
+    if (isGameWorking) {
+      // Show a subtle notification instead of an error
+      return (
+        <div className={styles.connectionInfo}>
+          <div className={styles.infoMessage}>
+            Using backup connection - game continues normally
+          </div>
+        </div>
+      );
+    }
     
     return (
       <div className={styles.connectionError}>
