@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useCallback, useRef } from 'react';
-import { SocketContext } from '../App';
+import { SocketContext } from '../../contexts/SocketContext';
 import styles from '../styles/Game.module.css';
 
 interface GameProps {

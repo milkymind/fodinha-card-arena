@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { AppProps } from 'next/app'
 import '../styles/globals.css'
+import '../src/App.css'
 import io, { Socket } from 'socket.io-client';
-
-// Create a WebSocket context to be used throughout the app
-import { createContext } from 'react';
-export const SocketContext = createContext<Socket | null>(null);
+import { SocketContext } from '../contexts/SocketContext';
 
 export default function App({ Component, pageProps }: AppProps) {
   const [socket, setSocket] = useState<Socket | null>(null);
