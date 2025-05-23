@@ -52,10 +52,8 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
   const [roundEndMessage, setRoundEndMessage] = useState<string | null>(null);
   const [prevRound, setPrevRound] = useState<number | null>(null);
   const [prevHand, setPrevHand] = useState<number | null>(null);
-  const [connectionError, setConnectionError] = useState<boolean>(false);
   const [lastActivityTime, setLastActivityTime] = useState<number>(Date.now());
   const [lastWinnerMessageTime, setLastWinnerMessageTime] = useState<number>(0);
-  const [connectionErrorTime, setConnectionErrorTime] = useState<number>(0);
   const [notificationType, setNotificationType] = useState<'turn' | 'waiting' | 'gameState' | 'error' | 'nextHand' | ''>('');
   const [lastSocketActivity, setLastSocketActivity] = useState<number>(Date.now());
   const [roundTransitionActive, setRoundTransitionActive] = useState<boolean>(false);
@@ -149,7 +147,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     // Handle socket connect events
     const onConnect = () => {
       console.log("Socket connected successfully");
-      setConnectionError(false);
       setLastSocketActivity(Date.now());
       
       // If we were previously connected and in a game, rejoin
@@ -162,28 +159,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     const onDisconnect = (reason: string) => {
       console.log(`Socket disconnected: ${reason}`);
       
-      // Don't show error for normal closures or intentional disconnects
-      if (reason !== "io client disconnect" && reason !== "io server disconnect") {
-        // Only show connection error if polling is also failing
-        // Give a grace period before showing the error
-        setTimeout(() => {
-          // Check if polling is working by seeing if we've had recent successful game state updates
-          const now = Date.now();
-          const timeSinceLastPoll = now - lastPollingTime;
-          const timeSinceLastActivity = now - lastActivityTime;
-          
-          // Only show connection error if:
-          // 1. We haven't had successful polling in the last 30 seconds
-          // 2. And we haven't had any user activity indicating the game is working
-          if (timeSinceLastPoll > 30000 && timeSinceLastActivity > 10000) {
-            setConnectionError(true);
-            setConnectionErrorTime(Date.now());
-            setError('Connection lost. Game continues via backup connection.');
-            setNotificationType('error');
-          }
-        }, 5000); // 5 second grace period
-      }
-      
       // Attempt reconnection if not intentionally disconnected
       if (reason !== "io client disconnect") {
         console.log("Socket will attempt to reconnect automatically");
@@ -193,20 +168,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     // Handle socket connection errors
     const onConnectError = (error: Error) => {
       console.error("Socket connection error:", error);
-      
-      // Only show error if this is a persistent issue
-      setTimeout(() => {
-        const now = Date.now();
-        const timeSinceLastPoll = now - lastPollingTime;
-        
-        // Only show error if polling isn't working either
-        if (timeSinceLastPoll > 30000) {
-          setConnectionError(true);
-          setConnectionErrorTime(Date.now());
-          setError('Connection error. Game continues via backup connection.');
-          setNotificationType('error');
-        }
-      }, 3000); // 3 second grace period
     };
     
     // Register event handlers
@@ -225,9 +186,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     // Handle reconnection events
     const onReconnect = (attemptNumber: number) => {
       console.log(`Socket reconnected after ${attemptNumber} attempts`);
-      setConnectionError(false);
-      setError('');
-      setLastSocketActivity(Date.now());
       joinGameRoom();
     };
     socket.on('reconnect', onReconnect);
@@ -235,25 +193,17 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     // Handle reconnection error
     const onReconnectError = (error: Error) => {
       console.error("Socket reconnection error:", error);
-      setConnectionError(true);
-      setError('Reconnection failed. Please try refreshing the page.');
-      setNotificationType('error');
     };
     socket.on('reconnect_error', onReconnectError);
     
     // Handle explicit reconnection failures
     const onReconnectFailed = () => {
       console.error("Socket reconnection failed after all attempts");
-      setConnectionError(true);
-      setError('Reconnection failed after multiple attempts. Please refresh the page.');
-      setNotificationType('error');
     };
     socket.on('reconnect_failed', onReconnectFailed);
     
     // Handle manual reconnect success
     const onManualReconnectSuccess = () => {
-      setConnectionError(false);
-      setError('');
       setLastSocketActivity(Date.now());
     };
     socket.on('manual-reconnect-success', onManualReconnectSuccess);
@@ -269,8 +219,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
 
         setIsProcessingGameState(true);
         setLastSocketActivity(Date.now());
-        setConnectionError(false); // Clear any connection errors when receiving updates
-        setError(''); // Clear any error messages
         const newGameState = data?.gameState;
         const newVersion = data?.version || 0;
         
@@ -390,12 +338,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
           // Save current round and hand to detect changes
         setPrevRound(newGameState?.current_round || null);
         setPrevHand(newGameState?.current_hand || null);
-        
-        // Reset connection error if it was set
-        if (connectionError) {
-          setConnectionError(false);
-          setError('');
-        }
 
         // Mark as done processing
         setTimeout(() => {
@@ -470,21 +412,11 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     // Enhanced reconnection handling
     socket.on('reconnect', () => {
       console.log("Socket reconnected automatically");
-      setConnectionError(false);
-      setError('');
-      setLastSocketActivity(Date.now());
-      
-      // Re-join the game room after reconnection
       joinGameRoom();
     });
 
     // Add heartbeat response handler
     socket.on('heartbeat', (data) => {
-      // Reset connection error state if it was set
-      if (connectionError) {
-        setConnectionError(false);
-      }
-      
       // Check if we need to sync our state version
       const serverVersion = data.version || 0;
       
@@ -583,7 +515,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
         }
       } catch (error) {
         console.error('Error fetching initial game state:', error);
-        setConnectionError(true);
         setError('Connection error. Please try refreshing the page.');
         setNotificationType('error');
       }
@@ -591,38 +522,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     
     fetchInitialGameState();
     
-    // Add connection recovery logic
-    const checkConnectionStatus = () => {
-      const now = Date.now();
-      // If no activity for over a minute, consider connection stale
-      if (now - lastSocketActivity > 60000) {
-        // Only set error if not already set to avoid UI flicker
-        if (!connectionError) {
-          console.log("Connection may be stale, attempting reconnection");
-          setConnectionError(true);
-          
-          // Try to reconnect
-          if (socket && gameId && playerId) {
-            // First try socket.io's built-in reconnect
-            if (!socket.connected) {
-              socket.connect();
-            }
-            
-            // Then try our custom reconnect after a short delay
-            setTimeout(() => {
-              if (!socket.connected && gameId && playerId) {
-                console.log("Attempting manual reconnection");
-                socket.emit('reconnect-attempt', { gameId, playerId });
-              }
-            }, 1000);
-          }
-        }
-      }
-    };
-
-    // Set up connection status checker
-    const connectionCheckerInterval = setInterval(checkConnectionStatus, 10000);
-
     // Clean up socket listeners on unmount
     return () => {
       console.log("Cleaning up socket listeners");
@@ -689,12 +588,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
               setGameState(data.game_state);
               updateGameStatus(data.game_state);
               setLastActivityTime(now);
-              
-              // Clear connection error since polling is working
-              if (connectionError) {
-                setConnectionError(false);
-                setError('');
-              }
             }
           }
         } else if (recentSuccessfulAction) {
@@ -715,16 +608,12 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     return () => {
       if (timerId) clearTimeout(timerId);
     };
-  }, [gameId, playerId, gameState, lastActivityTime, lastSocketActivity, lastPollingTime, isProcessingGameState, lastRequestTimestamps, socket, connectionError]);
+  }, [gameId, playerId, gameState, lastActivityTime, lastSocketActivity, lastPollingTime, isProcessingGameState, lastRequestTimestamps, socket]);
 
   // Update last activity time when user interacts with the page
   useEffect(() => {
     const handleUserActivity = () => {
       setLastActivityTime(Date.now());
-      if (connectionError && socket && socket.connected) {
-        setConnectionError(false);
-        setError('');
-      }
       
       // Clear any stale winner messages that might be stuck
       // Only clear if message has been shown for at least 2 seconds
@@ -746,7 +635,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       window.removeEventListener('mousemove', handleUserActivity);
       window.removeEventListener('touchstart', handleUserActivity);
     };
-  }, [connectionError, socket, winnerMessage, lastWinnerMessageTime]);
+  }, [winnerMessage, lastWinnerMessageTime]);
 
   // Update game status message based on state
   const updateGameStatus = (state: GameState) => {
@@ -1269,149 +1158,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     return playerIdOfCard === roundWinner;
   };
 
-  // Improved manual reconnection logic
-  useEffect(() => {
-    if (!socket || !connectionError) return;
-
-    // When connection error occurs for too long, try reconnecting
-    const reconnectTimer = setTimeout(() => {
-      if (connectionError && socket && socketReady && !isReconnecting.current) {
-        console.log('Attempting manual reconnection...');
-        isReconnecting.current = true;
-        
-        const reconnect = async () => {
-          try {
-            // First try to connect the socket if disconnected
-            if (!socket.connected) {
-              socket.connect();
-            }
-            
-            // Increase reconnect attempts counter
-            setReconnectAttempts(prev => prev + 1);
-            
-            // Then try to explicitly rejoin the game
-            socket.emit('reconnect-attempt', {
-              gameId,
-              playerId
-            });
-            
-            // Reset pending states
-            setIsSubmittingBet(false);
-            setIsPlayingCard(false);
-            setClickedCardIndex(null);
-            setPendingActions(new Set());
-            
-            // After a short delay, try to fetch the game state directly
-            setTimeout(async () => {
-              try {
-                const cacheParam = Math.random().toString(36).substring(7);
-                const response = await fetch(`/api/game-state/${gameId}?nocache=${cacheParam}`, {
-                  headers: {
-                    'X-Player-ID': playerId.toString(),
-                    'Cache-Control': 'no-cache'
-                  }
-                });
-                
-                if (response.ok) {
-                  const data = await response.json();
-                  if (data.status === 'success' && data.game_state) {
-                    setGameState(data.game_state);
-                    updateGameStatus(data.game_state);
-                    setConnectionError(false);
-                    setError('');
-                  }
-                }
-              } catch (e) {
-                console.error("Error fetching game state during reconnect:", e);
-              } finally {
-                isReconnecting.current = false;
-              }
-            }, 1000);
-          } catch (error) {
-            console.error('Reconnection attempt failed:', error);
-            isReconnecting.current = false;
-          }
-        };
-        
-        reconnect();
-      }
-    }, 5000);
-    
-    return () => {
-      clearTimeout(reconnectTimer);
-    };
-  }, [connectionError, socket, socketReady, gameId, playerId, reconnectAttempts]);
-
-  // Add a function to handle manual reconnection
-  const handleManualReconnect = useCallback(() => {
-    if (!socket) return;
-    
-    console.log("Attempting manual reconnection");
-    setError('Attempting to reconnect...');
-    
-    // First try to close any existing connection
-    if (socket.connected) {
-      socket.disconnect();
-    }
-    
-    // Attempt to reconnect
-    socket.connect();
-    
-    // After a short delay, try to rejoin the game room
-    setTimeout(() => {
-      if (socket.connected) {
-        console.log(`Manual reconnection succeeded, rejoining game ${gameId}`);
-        socket.emit('join-game', {
-          gameId,
-          playerId,
-          playerName: localStorage.getItem(`player_name_${playerId}`) || `Player ${playerId}`
-        });
-        
-        socket.emit('reconnect-attempt', { gameId, playerId });
-        setConnectionError(false);
-        setError('');
-      } else {
-        setError('Reconnection failed. Please refresh the page.');
-      }
-    }, 1000);
-  }, [socket, gameId, playerId]);
-
-  // Render connection error UI with manual reconnect button
-  const renderConnectionError = () => {
-    if (!connectionError) return null;
-    
-    // Check if the game is actually working (recent successful actions or polling)
-    const now = Date.now();
-    const timeSinceLastActivity = now - lastActivityTime;
-    const timeSinceLastPoll = now - lastPollingTime;
-    
-    // If we've had recent activity or successful polling, don't show the error as prominently
-    const isGameWorking = timeSinceLastActivity < 30000 || timeSinceLastPoll < 60000;
-    
-    if (isGameWorking) {
-      // Show a subtle notification instead of an error
-      return (
-        <div className={styles.connectionInfo}>
-          <div className={styles.infoMessage}>
-            Using backup connection - game continues normally
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div className={styles.connectionError}>
-        <div className={styles.errorMessage}>{error || 'Connection lost! Attempting to reconnect...'}</div>
-        <button 
-          className={styles.reconnectButton} 
-          onClick={handleManualReconnect}
-        >
-          Manual Reconnect
-        </button>
-      </div>
-    );
-  };
-
   return (
     <div className={styles.gameContainer} onClick={() => setLastActivityTime(Date.now())}>
       <div className={styles.header}>
@@ -1433,9 +1179,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
           Leave Game
         </button>
       </div>
-
-      {/* Display connection error and reconnect button */}
-      {renderConnectionError()}
 
       {gameStatus && (
         <div className={`${styles.gameStatus} ${getNotificationClass()}`}>
@@ -1717,12 +1460,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
           <button className={styles.leaveButton} onClick={onLeaveGame}>
             Leave Game
           </button>
-        </div>
-      )}
-
-      {connectionError && (
-        <div className={`${styles.connectionError} ${styles.errorNotification}`}>
-          <p>Connection lost. Attempting to reconnect automatically...</p>
         </div>
       )}
     </div>
