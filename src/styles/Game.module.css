@@ -432,26 +432,15 @@
   animation: fadeInOut 1s ease-in-out;
 }
 
-.errorMessage {
-  background-color: #dc3545;
-  color: white;
-  padding: 1rem;
+.waitingMsg {
+  background-color: #e7f1ff;
+  color: #0c5460;
+  border-left: 4px solid #007bff;
   border-radius: 8px;
+  padding: 1rem;
   margin-bottom: 1rem;
   text-align: center;
   font-weight: bold;
-  animation: fadeInOut 1s ease-in-out;
-}
-
-.waitingMsg {
-  background-color: #6c757d;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  text-align: center;
-  font-style: italic;
-  font-size: 0.9rem;
 }
 
 .winnerMessage {
@@ -565,19 +554,8 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.errorNotification {
-  background-color: #F44336 !important; /* Red */
-  color: white !important;
-  border-radius: 5px;
-  padding: 10px 20px;
-  margin: 10px 0;
-  text-align: center;
-  font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
 /* Improve existing notification styles */
-.gameStatus, .waitingMsg, .winnerMessage, .roundEndMessage, .errorMessage {
+.gameStatus, .waitingMsg, .winnerMessage, .roundEndMessage {
   border-radius: 5px;
   padding: 10px 20px;
   margin: 10px 0;

@@ -231,10 +231,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // First player should be the one after the dealer (consistent with the rules)
         if (gameState.dealer !== undefined) {
           const dealerIdx = gameState.players.indexOf(gameState.dealer);
-          gameState.first_player = gameState.players[(dealerIdx + 1) % gameState.players.length];
+          
+          // Only include active (non-eliminated) players in the order
+          const activePlayers = gameState.players.filter(p => !gameState.eliminados.includes(p));
+          
+          // Find the first active player after the dealer
+          let firstActivePlayer = gameState.first_player;
+          
+          // Make sure the first player is still active
+          if (gameState.eliminados.includes(gameState.first_player || 0)) {
+            // Find the next active player after the dealer
+            for (let i = 1; i <= gameState.players.length; i++) {
+              const nextPlayerIdx = (dealerIdx + i) % gameState.players.length;
+              const nextPlayer = gameState.players[nextPlayerIdx];
+              if (!gameState.eliminados.includes(nextPlayer)) {
+                firstActivePlayer = nextPlayer;
+                break;
+              }
+            }
+          }
+          
+          // Set up the play order with only active players, starting from the first active player
+          const firstActiveIdx = activePlayers.indexOf(firstActivePlayer || activePlayers[0]);
           gameState.ordem_jogada = [
-            ...gameState.players.slice(gameState.players.indexOf(gameState.first_player)),
-            ...gameState.players.slice(0, gameState.players.indexOf(gameState.first_player))
+            ...activePlayers.slice(firstActiveIdx),
+            ...activePlayers.slice(0, firstActiveIdx)
           ];
           gameState.current_player_idx = 0;
         }
@@ -272,7 +293,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         gameState.mesa.push([player_id, card]);
         gameState.cards_played_this_round = (gameState.cards_played_this_round || 0) + 1;
-        gameState.current_player_idx = (gameState.current_player_idx + 1) % gameState.players.length;
+        
+        // Advance to the next player in the ordem_jogada (which should only contain active players)
+        gameState.current_player_idx = (gameState.current_player_idx + 1) % gameState.ordem_jogada.length;
       } else {
         return res.status(400).json({ status: 'error', error: 'Invalid card index' });
       }
@@ -287,7 +310,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const card = hand.splice(card_index, 1)[0];
       gameState.mesa.push([player_id, card]);
       gameState.cards_played_this_round = (gameState.cards_played_this_round || 0) + 1;
-      gameState.current_player_idx = (gameState.current_player_idx + 1) % gameState.players.length;
+      
+      // Advance to the next player in the ordem_jogada (which should only contain active players)
+      gameState.current_player_idx = (gameState.current_player_idx + 1) % gameState.ordem_jogada.length;
     }
     
     // If all active players have played, resolve the trick
@@ -426,8 +451,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } else {
         // Round continues, next trick
         // Setup for next trick (winner leads)
-        const winnerIdx = gameState.players.indexOf(winner);
-        gameState.current_player_idx = winnerIdx;
+        // Find the winner's index in the ordem_jogada array (which only contains active players)
+        const winnerIdx = gameState.ordem_jogada.indexOf(winner);
+        if (winnerIdx !== -1) {
+          gameState.current_player_idx = winnerIdx;
+        } else {
+          // Fallback: if winner is not found in ordem_jogada, start with first player
+          console.error(`Winner ${winner} not found in ordem_jogada. Using first player as fallback.`);
+          gameState.current_player_idx = 0;
+        }
         gameState.mesa = [];
       }
     }

@@ -44,7 +44,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [bet, setBet] = useState<string>('');
   const [gameStatus, setGameStatus] = useState<string>('');
-  const [error, setError] = useState<string>('');
   const [waitingMsg, setWaitingMsg] = useState<string>('');
   const [lastPlayedCard, setLastPlayedCard] = useState<{playerId: number, card: string} | null>(null);
   const [winnerMessage, setWinnerMessage] = useState<string | null>(null);
@@ -54,7 +53,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
   const [prevHand, setPrevHand] = useState<number | null>(null);
   const [lastActivityTime, setLastActivityTime] = useState<number>(Date.now());
   const [lastWinnerMessageTime, setLastWinnerMessageTime] = useState<number>(0);
-  const [notificationType, setNotificationType] = useState<'turn' | 'waiting' | 'gameState' | 'error' | 'nextHand' | ''>('');
+  const [notificationType, setNotificationType] = useState<'turn' | 'waiting' | 'gameState' | 'nextHand' | ''>('');
   const [lastSocketActivity, setLastSocketActivity] = useState<number>(Date.now());
   const [roundTransitionActive, setRoundTransitionActive] = useState<boolean>(false);
   const [lastPollingTime, setLastPollingTime] = useState<number>(Date.now());
@@ -399,8 +398,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     // Listen for action errors
     socket.on('action-error', (data) => {
       console.error('Action error:', data);
-      setError(`Error: ${data.error}`);
-      setNotificationType('error');
       
       // Clear any pending actions
       setPendingActions(new Set());
@@ -510,13 +507,9 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
           setPrevHand(data.game_state.current_hand || null);
         } else {
           console.error('Invalid game state in response:', data);
-          setError('Invalid game data. Please try refreshing the page.');
-          setNotificationType('error');
         }
       } catch (error) {
         console.error('Error fetching initial game state:', error);
-        setError('Connection error. Please try refreshing the page.');
-        setNotificationType('error');
       }
     };
     
@@ -761,8 +754,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
   const startRound = async () => {
     try {
       await debounceAction('start-round', async () => {
-      setError('');
-        console.log(`Player ${playerId} attempting to start new round`);
+      console.log(`Player ${playerId} attempting to start new round`);
         
         if (socket && socket.connected) {
           socket.emit('game-action', {
@@ -798,8 +790,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       });
     } catch (error) {
       console.error('Error starting round:', error);
-      setError(error instanceof Error ? error.message : 'Connection error');
-      setNotificationType('error');
     }
   };
 
@@ -813,7 +803,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     try {
       // Use shorter debounce for better responsiveness
       await debounceAction(`bet-${playerId}`, async () => {
-      setError('');
         console.log(`Player ${playerId} attempting to place bet: ${betValue}`);
         
         if (socket && socket.connected) {
@@ -901,8 +890,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       }, 250); // Shorter debounce for better responsiveness
     } catch (error) {
       console.error('Error making bet:', error);
-      setError(error instanceof Error ? error.message : 'Connection error');
-      setNotificationType('error');
     } finally {
       // Set a shorter timeout before allowing another action
       setTimeout(() => {
@@ -934,7 +921,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       const debounceDelay = gameState?.cartas && gameState.cartas > 2 ? 200 : 300;
       
       await debounceAction(`play-card-${playerId}-${cardIndex}`, async () => {
-        setError('');
         console.log(`Player ${playerId} attempting to play card at index ${cardIndex}`);
         
         // Socket notification for immediate feedback
@@ -1022,8 +1008,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       }, debounceDelay); // Use variable debounce delay based on hand size
     } catch (error) {
       console.error('Error playing card:', error);
-      setError(error instanceof Error ? error.message : 'Connection error');
-      setNotificationType('error');
     } finally {
       // Clear last played card indication after animation time
       setTimeout(() => {
@@ -1104,7 +1088,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       case 'turn': return styles.turnNotification;
       case 'waiting': return styles.waitingNotification;
       case 'gameState': return styles.gameStateNotification;
-      case 'error': return styles.errorNotification;
       case 'nextHand': return styles.nextHandNotification;
       default: return '';
     }
@@ -1201,12 +1184,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       {roundEndMessage && (
         <div className={`${styles.roundEndMessage} ${styles.gameStateNotification}`}>
           <p>{roundEndMessage}</p>
-        </div>
-      )}
-
-      {error && (
-        <div className={`${styles.errorMessage} ${styles.errorNotification}`}>
-          <p>{error}</p>
         </div>
       )}
 
