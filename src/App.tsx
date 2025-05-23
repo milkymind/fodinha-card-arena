@@ -7,6 +7,9 @@ import Home from './pages/Home';
 // Create a WebSocket context to be used throughout the app
 export const SocketContext = createContext<Socket | null>(null);
 
+// Get backend URL from environment or default to current domain
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
+
 // Check if we're in a preview/demo environment
 const isPreviewMode = () => {
   // Only enable demo mode for specific preview URLs or when explicitly requested
@@ -55,7 +58,8 @@ function App() {
         
         for (const endpoint of endpoints) {
           try {
-            const response = await fetch(endpoint, { 
+            const url = BACKEND_URL ? `${BACKEND_URL}${endpoint}` : endpoint;
+            const response = await fetch(url, { 
               method: 'GET',
               signal: controller.signal,
               headers: {
@@ -94,10 +98,11 @@ function App() {
     const initializeSocket = async () => {
       try {
         // Make sure the socket server is running
-        await fetch('/api/socket');
+        const socketUrl = BACKEND_URL ? `${BACKEND_URL}/api/socket` : '/api/socket';
+        await fetch(socketUrl);
         
         // Connect to the socket server with improved reconnection settings
-        const socketConnection = io({
+        const socketConnection = io(BACKEND_URL || '', {
           path: '/api/socket-io',
           addTrailingSlash: false,
           reconnection: true,

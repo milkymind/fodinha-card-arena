@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: fodinha-card-game-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    autoDeploy: true
+    scaling:
+      minInstances: 1
+      maxInstances: 1 
