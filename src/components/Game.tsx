@@ -805,11 +805,17 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     setBetError('');
     
     // Check if this bet would make the total equal to the number of cards
+    // This restriction only applies to the LAST player in the betting round
     if (gameState) {
       const currentTotal = gameState.soma_palpites || 0;
       const newTotal = currentTotal + betValue;
       
-      if (newTotal === gameState.cartas) {
+      // Determine if this is the last player to bet using ordem_jogada
+      const currentPlayerIdx = gameState.current_player_idx || 0;
+      const totalPlayersInBettingRound = gameState.ordem_jogada?.length || 0;
+      const isLastPlayerToBet = currentPlayerIdx === (totalPlayersInBettingRound - 1);
+      
+      if (isLastPlayerToBet && newTotal === gameState.cartas) {
         setBetError('Invalid bet: Total bets cannot equal the number of cards in the round.');
         return;
       }
