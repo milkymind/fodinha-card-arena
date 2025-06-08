@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Generate a unique game ID
-    const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const gameId = Math.random().toString(36).substring(2, 6).toUpperCase();
     console.log(`Creating new game with ID: ${gameId}`);
     
     // Create the lobby object

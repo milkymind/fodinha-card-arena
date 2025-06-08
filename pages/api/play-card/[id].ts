@@ -337,7 +337,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       console.log('Cards grouped by strength:', Object.fromEntries(cardsByStrength));
       
-      // Step 2: Cancel out cards that have the same strength (value)
+      // Step 2: Cancel out cards that have the same strength (value) - but in pairs, not all at once
       const remainingCards: [number, string][] = [];
       const cancelledCards: [number, string][] = [];
       
@@ -345,10 +345,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (cards.length === 1) {
           // Only one card with this strength, it remains
           remainingCards.push(cards[0]);
-        } else {
-          // Multiple cards with same strength - they cancel each other out
-          console.log(`Cancelling ${cards.length} cards with strength ${strength}:`, cards);
+        } else if (cards.length === 2) {
+          // Two cards with same strength - they cancel each other out
+          console.log(`Cancelling pair of cards with strength ${strength}:`, cards);
           cancelledCards.push(...cards);
+        } else {
+          // More than 2 cards with same strength - cancel in pairs, leaving remainder
+          const numPairs = Math.floor(cards.length / 2);
+          const numCancelled = numPairs * 2;
+          const numRemaining = cards.length - numCancelled;
+          
+          console.log(`Cancelling ${numCancelled} cards (${numPairs} pairs) with strength ${strength}, ${numRemaining} remaining:`, cards);
+          
+          // Cancel pairs (first numCancelled cards)
+          for (let i = 0; i < numCancelled; i++) {
+            cancelledCards.push(cards[i]);
+          }
+          
+          // Add remaining cards that weren't cancelled
+          for (let i = numCancelled; i < cards.length; i++) {
+            remainingCards.push(cards[i]);
+          }
         }
       }
       
@@ -430,7 +447,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             
             for (const [pid, cardPlayed] of winners) {
               const suit = getCardSuit(cardPlayed);
-              const suitValue = ORDEM_NAIPE_MANILHA[suit as keyof typeof ORDEM_NAIPE_MANILHA] || 0;
+              const suitValue = ORDEM_NAIPE_DESEMPATE[suit as keyof typeof ORDEM_NAIPE_DESEMPATE] || 0;
               
               if (suitValue > highestSuit) {
                 highestSuit = suitValue;

@@ -71,6 +71,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
   const [stateVersion, setStateVersion] = useState<number>(0);
   const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, any>>(new Map());
   const [syncInProgress, setSyncInProgress] = useState<boolean>(false);
+  const [betError, setBetError] = useState<string>('');
   
   // Use a ref to track if we're already attempting to reconnect
   const isReconnecting = useRef<boolean>(false);
@@ -799,6 +800,21 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     if (!bet || isSubmittingBet) return;
     
     const betValue = parseInt(bet);
+    
+    // Clear any previous error
+    setBetError('');
+    
+    // Check if this bet would make the total equal to the number of cards
+    if (gameState) {
+      const currentTotal = gameState.soma_palpites || 0;
+      const newTotal = currentTotal + betValue;
+      
+      if (newTotal === gameState.cartas) {
+        setBetError('Invalid bet: Total bets cannot equal the number of cards in the round.');
+        return;
+      }
+    }
+    
     setIsSubmittingBet(true);
     
     try {
@@ -1105,7 +1121,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
 
   // Function to determine if a card is the winning card in this round
   const isWinningCard = (playerIdOfCard: number, card: string): boolean => {
-    if (!gameState) return false;
+    if (!gameState || !gameState.mesa || gameState.mesa.length === 0) return false;
     
     // Skip highlighting in tied rounds except for the final round of a hand
     if (gameState.tie_in_previous_round && 
@@ -1113,42 +1129,107 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       return false;
     }
     
-    // Use the explicit flag if available
+    // Use the explicit flag if available (for completed rounds)
     if (gameState.winning_card_played_by !== undefined) {
       return playerIdOfCard === gameState.winning_card_played_by;
     }
     
-    // During gameplay (not just in round_over state), we can highlight the current winning card
+    // During gameplay, calculate the current winning card in real-time
     if (gameState.estado === 'jogando' || gameState.estado === 'round_over') {
-      // If there's only one card played so far, it's currently winning
-      if (gameState.mesa && gameState.mesa.length === 1) {
-        const [firstPlayerId, firstCard] = gameState.mesa[0];
-        return playerIdOfCard === firstPlayerId && card === firstCard;
+      // First, check if this card is even on the table
+      const cardOnTable = gameState.mesa.find(([pid, tableCard]) => 
+        pid === playerIdOfCard && tableCard === card
+      );
+      if (!cardOnTable) return false;
+      
+      // Calculate card strengths and group by strength
+      const ORDEM_CARTAS = {
+        '4': 0, '5': 1, '6': 2, '7': 3, 'Q': 4, 'J': 5, 'K': 6, 'A': 7, '2': 8, '3': 9
+      };
+      const ORDEM_NAIPE_MANILHA = {'♦': 0, '♠': 1, '♥': 2, '♣': 3};
+      
+      const getCardStrength = (cardStr: string): number => {
+        const value = cardStr.substring(0, cardStr.length - 1);
+        const suit = cardStr.charAt(cardStr.length - 1);
+        
+        if (gameState.manilha && value === gameState.manilha) {
+          return 100 + (ORDEM_NAIPE_MANILHA[suit as keyof typeof ORDEM_NAIPE_MANILHA] || 0);
+        }
+        
+        return ORDEM_CARTAS[value as keyof typeof ORDEM_CARTAS] || 0;
+      };
+      
+      // Group cards by strength
+      const cardsByStrength = new Map<number, [number, string][]>();
+      
+      for (const [pid, tableCard] of gameState.mesa) {
+        const strength = getCardStrength(tableCard);
+        
+        if (!cardsByStrength.has(strength)) {
+          cardsByStrength.set(strength, []);
+        }
+        cardsByStrength.get(strength)!.push([pid, tableCard]);
       }
       
-      // For more than one card, implement the winning card logic:
-      // 1. Cards of the manilha suit win over non-manilha
-      // 2. Higher value cards win within the same suit
-      // 3. First card played wins ties
-      if (gameState.mesa && gameState.mesa.length > 1 && gameState.manilha) {
-        // Extract the winning card logic here...
-        // But for now, just use the last_trick_winner as a proxy if available
-        if (gameState.last_trick_winner === playerIdOfCard) {
-          return true;
+      // Cancel out cards with same strength (groups of 2+ cards cancel each other)
+      const remainingCards: [number, string][] = [];
+      
+      for (const [strength, cards] of Array.from(cardsByStrength.entries())) {
+        if (cards.length === 1) {
+          // Only one card with this strength, it remains
+          remainingCards.push(cards[0]);
+        } else if (cards.length === 2) {
+          // Two cards with same strength - they cancel each other out
+          // No cards added to remaining
+        } else {
+          // More than 2 cards with same strength - cancel in pairs, leaving remainder
+          const numPairs = Math.floor(cards.length / 2);
+          const numCancelled = numPairs * 2;
+          
+          // Add remaining cards that weren't cancelled (cards beyond the pairs)
+          for (let i = numCancelled; i < cards.length; i++) {
+            remainingCards.push(cards[i]);
+          }
         }
+      }
+      
+      // If no cards remain (all cancelled), no winner yet
+      if (remainingCards.length === 0) {
+        return false;
+      }
+      
+      // Find the highest strength among remaining cards
+      let highestStrength = -1;
+      let winners: [number, string][] = [];
+      
+      for (const [pid, tableCard] of remainingCards) {
+        const strength = getCardStrength(tableCard);
+        
+        if (strength > highestStrength) {
+          highestStrength = strength;
+          winners = [[pid, tableCard]];
+        } else if (strength === highestStrength) {
+          winners.push([pid, tableCard]);
+        }
+      }
+      
+      // If there's only one winner, check if it's our card
+      if (winners.length === 1) {
+        const [winnerPid, winnerCard] = winners[0];
+        return winnerPid === playerIdOfCard && winnerCard === card;
+      }
+      
+      // If multiple winners with same strength, for final round we could use suit tiebreaker
+      // but for display purposes during gameplay, we'll just highlight all tied winners
+      if (winners.length > 1) {
+        const isWinner = winners.some(([pid, tableCard]) => 
+          pid === playerIdOfCard && tableCard === card
+        );
+        return isWinner;
       }
     }
     
-    // Get the round winner
-    const roundWinner = gameState.last_round_winner || gameState.last_trick_winner;
-    
-    // If no winner is set or it's a tie in a non-final round, don't highlight
-    if (!roundWinner || (gameState.tie_in_previous_round && gameState.current_round !== gameState.cartas)) {
-      return false;
-    }
-    
-    // If this is the card played by the winner
-    return playerIdOfCard === roundWinner;
+    return false;
   };
 
   return (
@@ -1316,7 +1397,6 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
                   <div className={styles.playerLabel}>
                     {gameState.player_names[pid]}
                     {isWinningCard(pid, card) && <span className={styles.winnerLabel}>👑</span>}
-                    {isCancelledCard(pid, card) && <span className={styles.cancelledLabel}>Cancelled</span>}
                   </div>
                 </div>
               ))}
@@ -1349,7 +1429,10 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
             <input
               type="number"
               value={bet}
-              onChange={(e) => setBet(e.target.value)}
+              onChange={(e) => {
+                setBet(e.target.value);
+                setBetError(''); // Clear error when input changes
+              }}
               min="0"
               max={gameState.cartas || 1}
               className={styles.betInput}
@@ -1363,6 +1446,9 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
               {isSubmittingBet ? 'Confirming...' : 'Confirm Bet'}
             </button>
           </div>
+          {betError && (
+            <p className={styles.errorMessage}>{betError}</p>
+          )}
           <p className={styles.betHint}>
             Total bets so far: {gameState.soma_palpites || 0} / {gameState.cartas}
           </p>

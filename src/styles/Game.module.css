@@ -56,7 +56,7 @@
 }
 
 .tableInfo {
-  background-color: #e9ecef;
+  background-color: #3a7e4f;
   padding: 1rem;
   border-radius: 8px;
   margin: 2rem 0;
@@ -295,18 +295,20 @@
 }
 
 .manilhaInfo {
-  color: white;
+  color: #000;
   font-weight: bold;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  font-size: 1.2rem;
+  text-shadow: none;
 }
 
 .manilhaValue {
-  background-color: rgba(255,255,255,0.8);
+  background-color: rgba(255,255,255,0.9);
   color: #333;
-  padding: 0.25rem 0.5rem;
+  padding: 0.4rem 0.8rem;
   border-radius: 4px;
   margin-left: 0.5rem;
   font-weight: bold;
+  font-size: 1.1rem;
 }
 
 .playedCards {
@@ -554,6 +556,18 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.errorMessage {
+  background-color: #dc3545;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 5px;
+  margin-top: 0.5rem;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 /* Improve existing notification styles */
 .gameStatus, .waitingMsg, .winnerMessage, .roundEndMessage {
   border-radius: 5px;
@@ -683,9 +697,9 @@
   animation: pulse 2s infinite;
 }
 
-.cancelledLabel {
-  color: #dc3545;
-  font-size: 0.8rem;
-  font-style: italic;
-  margin-left: 5px;
+.buttonDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #6c757d;
+  box-shadow: none;
 } 
