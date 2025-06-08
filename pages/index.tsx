@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/Home.module.css';
 import Game from '../src/components/Game';
+import { useLanguage } from '../contexts/LanguageContext';
+import LanguageToggle from '../src/components/LanguageToggle';
 
 interface LobbyInfo {
   players: { id: number; name: string }[];
@@ -9,6 +11,7 @@ interface LobbyInfo {
 }
 
 export default function Home() {
+  const { t } = useLanguage();
   const [gameId, setGameId] = useState<string>('');
   const [playerId, setPlayerId] = useState<number | null>(null);
   const [playerName, setPlayerName] = useState<string>('');
@@ -39,11 +42,11 @@ export default function Home() {
         setLobbyInfo(data.lobby);
         setError('');
       } else {
-        setError(data.error || 'Failed to create game');
+        setError(data.error || t('failed_to_create'));
       }
     } catch (error) {
       console.error('Error creating game:', error);
-      setError('Failed to connect to the game server');
+      setError(t('failed_to_connect'));
     }
   };
 
@@ -64,11 +67,11 @@ export default function Home() {
         setLobbyInfo(data.lobby);
         setError('');
       } else {
-        setError(data.error || 'Failed to join game');
+        setError(data.error || t('failed_to_join'));
       }
     } catch (error) {
       console.error('Error joining game:', error);
-      setError('Failed to connect to the game server');
+      setError(t('failed_to_connect'));
     }
   };
 
@@ -121,10 +124,10 @@ export default function Home() {
       if (data.status === 'success') {
         setGameStarted(true);
       } else {
-        setError(data.error || 'Failed to start game');
+        setError(data.error || t('failed_to_create'));
       }
     } catch (e) {
-      setError('Failed to start game');
+      setError(t('failed_to_create'));
     }
   };
 
@@ -144,26 +147,27 @@ export default function Home() {
     const isHost = lobbyInfo.players[0]?.id === playerId;
     return (
       <div className={styles.container}>
-        <h2>Lobby: {gameId}</h2>
+        <LanguageToggle />
+        <h2>{t('lobby', { id: gameId })}</h2>
         <div className={styles.section}>
-          <h3>Players ({lobbyInfo.players.length} / {lobbyInfo.maxPlayers})</h3>
+          <h3>{t('players_count', { current: lobbyInfo.players.length, max: lobbyInfo.maxPlayers })}</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {lobbyInfo.players.map((p) => (
               <li key={p.id} style={{ fontWeight: p.id === playerId ? 'bold' : 'normal' }}>
-                {p.name} {p.id === playerId ? '(You)' : ''}
+                {p.name} {p.id === playerId ? t('you') : ''}
               </li>
             ))}
           </ul>
-          <p>Lives per player: <b>{lobbyInfo.lives}</b></p>
-          <p>Share this lobby code with friends to join: <b>{gameId}</b></p>
+          <p>{t('lives_per_player', { lives: lobbyInfo.lives })}</p>
+          <p>{t('share_lobby_code', { code: gameId })}</p>
           {isHost && (
             <button className={styles.button} onClick={handleStartGame} disabled={lobbyInfo.players.length < 2}>
-              Start Game
+              {t('start_game')}
             </button>
           )}
-          <button className={styles.button} onClick={handleLeaveGame}>Leave Lobby</button>
+          <button className={styles.button} onClick={handleLeaveGame}>{t('leave_lobby')}</button>
           {isHost && lobbyInfo.players.length < 2 && (
-            <p style={{ color: 'red', marginTop: 8 }}>At least 2 players are required to start.</p>
+            <p style={{ color: 'red', marginTop: 8 }}>{t('min_players_required')}</p>
           )}
         </div>
       </div>
@@ -172,43 +176,44 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Fodinha Card Game</h1>
+      <LanguageToggle />
+      <h1 className={styles.title}>{t('title')}</h1>
       {error && (
         <div className={styles.error}>
           {error}
         </div>
       )}
       <div className={styles.section}>
-        <h2>Join or Create a Game</h2>
+        <h2>{t('join_or_create')}</h2>
         <div className={styles.inputGroup}>
           <input
             type="text"
-            placeholder="Your Name"
+            placeholder={t('your_name')}
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             className={styles.input}
           />
         </div>
         <div className={styles.livesSelection}>
-          <h3>Select Lives (for new game)</h3>
+          <h3>{t('select_lives')}</h3>
           <div className={styles.livesOptions}>
             <button 
               onClick={() => setLives(3)} 
               className={`${styles.livesButton} ${lives === 3 ? styles.selected : ''}`}
             >
-              3 Lives
+              {t('lives_count', { count: 3 })}
             </button>
             <button 
               onClick={() => setLives(5)} 
               className={`${styles.livesButton} ${lives === 5 ? styles.selected : ''}`}
             >
-              5 Lives
+              {t('lives_count', { count: 5 })}
             </button>
             <button 
               onClick={() => setLives(7)} 
               className={`${styles.livesButton} ${lives === 7 ? styles.selected : ''}`}
             >
-              7 Lives
+              {t('lives_count', { count: 7 })}
             </button>
           </div>
         </div>
@@ -219,16 +224,16 @@ export default function Home() {
             className={styles.button}
             disabled={!playerName}
           >
-            Create New Game
+            {t('create_new_game')}
           </button>
         </div>
         
         <div className={styles.joinSection}>
-          <h3>Join Existing Game</h3>
+          <h3>{t('join_existing_game')}</h3>
           <div className={styles.inputGroup}>
             <input
               type="text"
-              placeholder="Game ID"
+              placeholder={t('game_id')}
               value={joinGameId}
               onChange={(e) => setJoinGameId(e.target.value)}
               className={styles.input}
@@ -238,105 +243,102 @@ export default function Home() {
               className={styles.button}
               disabled={!joinGameId || !playerName}
             >
-              Join Game
+              {t('join_game')}
             </button>
           </div>
         </div>
       </div>
       {gameId && !playerId && (
         <div className={styles.section}>
-          <h2>Game Created!</h2>
-          <p>Your Game ID: {gameId}</p>
-          <p>Share this ID with your friends to let them join.</p>
+          <h2>{t('game_created')}</h2>
+          <p>{t('your_game_id', { id: gameId })}</p>
+          <p>{t('share_id')}</p>
           <button
             onClick={() => joinGame(gameId)}
             className={styles.button}
             disabled={!playerName}
           >
-            Join Your Game
+            {t('join_your_game')}
           </button>
         </div>
       )}
       
       {/* Rules/Tutorial Section */}
       <div className={styles.section}>
-        <h2>🎯 How to Play Fodinha</h2>
+        <h2>{t('how_to_play')}</h2>
         <div className={styles.rulesSection}>
           
-          <h3>📋 Game Overview</h3>
-          <p>
-            Fodinha is a Brazilian trick-taking card game where players try to predict exactly how many tricks (rounds) they will win. 
-            The goal is to make your exact bet - no more, no less!
-          </p>
+          <h3>{t('game_overview')}</h3>
+          <p>{t('game_overview_text')}</p>
           
-          <h3>🎮 Game Setup</h3>
+          <h3>{t('game_setup')}</h3>
           <ul>
-            <li><strong>Players:</strong> 2-6 players</li>
-            <li><strong>Lives:</strong> Each player starts with 3, 5, or 7 lives</li>
-            <li><strong>Cards:</strong> Standard 52-card deck with special card hierarchy</li>
+            <li><strong>{t('game_setup_players')}</strong></li>
+            <li><strong>{t('game_setup_lives')}</strong></li>
+            <li><strong>{t('game_setup_cards')}</strong></li>
           </ul>
           
           <div className={styles.cardHierarchy}>
-            <h3>🃏 Card Hierarchy (Strongest to Weakest)</h3>
+            <h3>{t('card_hierarchy')}</h3>
             <ol>
-              <li><strong>Manilha:</strong> The card that comes after the middle card (changes each hand)</li>
-              <li><strong>Aces (A)</strong></li>
-              <li><strong>Kings (K)</strong></li>
-              <li><strong>Jacks (J)</strong></li>
-              <li><strong>Queens (Q)</strong></li>
-              <li><strong>7, 6, 5, 4</strong></li>
-              <li><strong>3, 2</strong> (weakest)</li>
+              <li><strong>{t('card_hierarchy_manilha')}</strong></li>
+              <li><strong>{t('card_hierarchy_aces')}</strong></li>
+              <li><strong>{t('card_hierarchy_kings')}</strong></li>
+              <li><strong>{t('card_hierarchy_jacks')}</strong></li>
+              <li><strong>{t('card_hierarchy_queens')}</strong></li>
+              <li><strong>{t('card_hierarchy_middle')}</strong></li>
+              <li><strong>{t('card_hierarchy_low')}</strong></li>
             </ol>
           </div>
           
-          <h3>🎯 How to Play</h3>
+          <h3>{t('how_to_play_section')}</h3>
           <div style={{ marginLeft: '20px' }}>
-            <h4>1. Betting Phase</h4>
+            <h4>{t('betting_phase_rules')}</h4>
             <ul>
-              <li>Look at your cards and predict how many tricks you'll win</li>
-              <li><strong>Important:</strong> The last player cannot make a bet that would make the total bets equal to the number of cards</li>
-              <li>Example: In a 3-card hand, if bets total 2, the last player cannot bet 1</li>
+              <li>{t('betting_phase_text1')}</li>
+              <li><strong>{t('betting_phase_text2')}</strong></li>
+              <li>{t('betting_phase_text3')}</li>
             </ul>
             
-            <h4>2. Playing Phase</h4>
+            <h4>{t('playing_phase_rules')}</h4>
             <ul>
-              <li>Players take turns playing one card</li>
-              <li>The highest card wins the trick (round)</li>
-              <li>The winner of each trick leads the next one</li>
-              <li><strong>Card Cancellation:</strong> If two players play cards of the same strength, they cancel each other out</li>
+              <li>{t('playing_phase_text1')}</li>
+              <li>{t('playing_phase_text2')}</li>
+              <li>{t('playing_phase_text3')}</li>
+              <li><strong>{t('playing_phase_text4')}</strong></li>
             </ul>
             
-            <h4>3. Scoring</h4>
+            <h4>{t('scoring_rules')}</h4>
             <ul>
-              <li><strong>Exact Match:</strong> If you win exactly what you bet, you keep all your lives</li>
-              <li><strong>Wrong Guess:</strong> If you win more or fewer tricks than you bet, you lose 1 life</li>
+              <li><strong>{t('scoring_text1')}</strong></li>
+              <li><strong>{t('scoring_text2')}</strong></li>
             </ul>
           </div>
           
-          <h3>🏆 Winning & Elimination</h3>
+          <h3>{t('winning_elimination')}</h3>
           <ul>
-            <li>When you reach 0 lives, you're eliminated</li>
-            <li>The last player remaining wins the game!</li>
-            <li>Games get progressively harder as the number of cards increases, then decreases</li>
+            <li>{t('winning_text1')}</li>
+            <li>{t('winning_text2')}</li>
+            <li>{t('winning_text3')}</li>
           </ul>
           
-          <h3>💡 Strategy Tips</h3>
+          <h3>{t('strategy_tips')}</h3>
           <ul>
-            <li><strong>Count the Manilhas:</strong> There are 4 manilhas (one per suit) - track them carefully</li>
-            <li><strong>Watch the Bets:</strong> Use other players' bets to estimate the strength of their hands</li>
-            <li><strong>Card Memory:</strong> Remember which high cards have been played</li>
-            <li><strong>Final Player Advantage:</strong> The last player to bet has more information but also restrictions</li>
+            <li><strong>{t('strategy_tip1')}</strong></li>
+            <li><strong>{t('strategy_tip2')}</strong></li>
+            <li><strong>{t('strategy_tip3')}</strong></li>
+            <li><strong>{t('strategy_tip4')}</strong></li>
           </ul>
           
-          <h3>👑 Special Rules</h3>
+          <h3>{t('special_rules')}</h3>
           <ul>
-            <li><strong>Manilha Suits:</strong> In ties, manilha suits are ranked: ♣ (lowest) → ♥ → ♠ → ♦ (highest)</li>
-            <li><strong>Card Cancellation:</strong> Cards of the same strength cancel in pairs as they're played</li>
-            <li><strong>Crown Highlight:</strong> The current winning card in each trick is highlighted with a crown 👑</li>
+            <li><strong>{t('special_rule1')}</strong></li>
+            <li><strong>{t('special_rule2')}</strong></li>
+            <li><strong>{t('special_rule3')}</strong></li>
           </ul>
           
           <div className={styles.importantNote}>
-            <strong>💡 Pro Tip:</strong> Take your time in the betting phase! Your success depends on accurately predicting your performance.
+            <strong>{t('pro_tip')}</strong>
           </div>
           
         </div>

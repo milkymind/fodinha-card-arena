@@ -1,6 +1,8 @@
 import { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { SocketContext } from '../../contexts/SocketContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 import styles from '../styles/Game.module.css';
+import LanguageToggle from './LanguageToggle';
 
 interface GameProps {
   gameId: string;
@@ -42,6 +44,7 @@ interface GameState {
 
 export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
   const socket = useContext(SocketContext);
+  const { t } = useLanguage();
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [bet, setBet] = useState<string>('');
   const [gameStatus, setGameStatus] = useState<string>('');
@@ -316,11 +319,11 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
           
           // Check if it was a tie (the multiplier will be > 1 if there was a tie in the previous round)
           if (newGameState?.tie_in_previous_round) {
-            setWinnerMessage(`The round ended in a tie! Multiplier is now x${newGameState.multiplicador}`);
+            setWinnerMessage(t('tie_message', { value: newGameState.multiplicador || 1 }));
             setNotificationType('gameState');
           } else {
             const winnerName = newGameState?.player_names?.[roundWinner];
-            setWinnerMessage(`${winnerName} won the round!`);
+            setWinnerMessage(t('round_winner', { player: winnerName }));
             setNotificationType('gameState');
           }
             setPrevRoundWinner(roundWinner);
@@ -638,22 +641,22 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     const prevEstado = gameState?.estado;
     
     if (state.estado === 'aguardando') {
-      setGameStatus('Waiting to start the next hand');
+      setGameStatus(t('waiting_to_start'));
       setWaitingMsg('');
       setNotificationType('nextHand');
     } else if (state.estado === 'apostas') {
       const currentPlayerIdx = state.current_player_idx ?? 0;
       const currentPlayer = state.ordem_jogada?.[currentPlayerIdx];
       if (currentPlayer !== undefined && currentPlayer === playerId) {
-        setGameStatus('It\'s your turn to place a bet!');
+        setGameStatus(t('your_turn_bet'));
         setWaitingMsg('');
         setNotificationType('turn');
       } else if (currentPlayer !== undefined) {
-        setGameStatus(`Waiting for ${state.player_names[currentPlayer]} to place a bet`);
+        setGameStatus(t('waiting_for_bet', { player: state.player_names[currentPlayer] }));
         setWaitingMsg('');
         setNotificationType('waiting');
       } else {
-        setGameStatus('Waiting for bets');
+        setGameStatus(t('waiting_for_bets'));
         setWaitingMsg('');
         setNotificationType('waiting');
       }
@@ -661,15 +664,15 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       const currentPlayerIdx = state.current_player_idx ?? 0;
       const currentPlayer = state.ordem_jogada?.[currentPlayerIdx];
       if (currentPlayer !== undefined && currentPlayer === playerId) {
-        setGameStatus('It\'s your turn to play a card!');
+        setGameStatus(t('your_turn_play'));
         setWaitingMsg('');
         setNotificationType('turn');
       } else if (currentPlayer !== undefined) {
-        setGameStatus(`Waiting for ${state.player_names[currentPlayer]} to play a card`);
+        setGameStatus(t('waiting_for_play', { player: state.player_names[currentPlayer] }));
         setWaitingMsg('');
         setNotificationType('waiting');
       } else {
-        setGameStatus('Waiting for plays');
+        setGameStatus(t('waiting_for_plays'));
         setWaitingMsg('');
         setNotificationType('waiting');
       }
@@ -677,8 +680,8 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       if (state.current_round && state.cartas && state.current_round < state.cartas) {
         // Between rounds in a multi-card hand
         if (state.tie_in_previous_round) {
-          setGameStatus(`Round ${state.current_round} ended in a tie!`);
-          setWinnerMessage(`Round ended in a tie! Multiplier is now x${state.multiplicador}`);
+          setGameStatus(t('round_complete', { prev: state.current_round || 1 }));
+          setWinnerMessage(t('tie_message', { value: state.multiplicador || 1 }));
           setNotificationType('gameState');
           
           const nextPlayerToPlay = state.ordem_jogada?.[0];
@@ -691,7 +694,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
         const roundWinner = state.last_round_winner || state.last_trick_winner;
         if (roundWinner) {
           const winnerName = state.player_names[roundWinner];
-          setGameStatus(`Round ${state.current_round} complete! ${winnerName} won this round.`);
+          setGameStatus(t('round_complete', { prev: state.current_round || 1 }));
             setNotificationType('gameState');
           
           // The next player to play is after the dealer (not the round winner)
@@ -701,20 +704,20 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
               setWaitingMsg('');
           }
         } else {
-          setGameStatus(`Round ${state.current_round} complete!`);
+          setGameStatus(t('round_complete', { prev: state.current_round || 1 }));
             setWaitingMsg('');
             setNotificationType('gameState');
           }
         }
       } else {
         // Between hands
-        setGameStatus('Hand complete!');
+        setGameStatus(t('hand_complete', { prev: state.current_hand || 0, current: (state.current_hand || 0) + 1, cards: state.cartas || 0 }));
         setNotificationType('gameState');
         
         // If there was a tie in the final round that was resolved by a tiebreaker
         if (state.tie_resolved_by_tiebreaker && state.last_round_winner) {
           const winnerName = state.player_names[state.last_round_winner];
-          setWinnerMessage(`Final round ended in a tie! ${winnerName} won with a higher suit.`);
+          setWinnerMessage(t('tie_message', { value: state.multiplicador || 1 }));
           
           // Have this message disappear after 3 seconds
           setTimeout(() => {
@@ -741,10 +744,10 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       const winners = state.players.filter(p => !state.eliminados?.includes(p));
       if (winners.length === 1) {
         const winner = winners[0];
-        setGameStatus(`Game over! ${state.player_names[winner]} won!`);
+        setGameStatus(t('round_winner', { player: state.player_names[winner] }));
           setNotificationType('gameState');
       } else {
-        setGameStatus('Game over!');
+        setGameStatus(t('game_over'));
           setNotificationType('gameState');
       }
       setWaitingMsg('');
@@ -1116,13 +1119,67 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
     }
   };
 
-  // Function to determine if a card is cancelled in this round
+  // Function to determine if a card is cancelled in this round (real-time calculation)
   const isCancelledCard = (playerIdOfCard: number, card: string): boolean => {
-    if (!gameState?.cancelled_cards) return false;
+    if (!gameState || !gameState.mesa || gameState.mesa.length < 2) return false;
     
-    return gameState.cancelled_cards.some(([pid, cardValue]) => 
-      pid === playerIdOfCard && cardValue === card
-    );
+    // Get card value for comparison (without suit)
+    const getCardValue = (cardStr: string): string => {
+      return cardStr.substring(0, cardStr.length - 1);
+    };
+    
+    // Get the strength of this card
+    const getCardStrength = (cardStr: string): number => {
+      const ORDEM_CARTAS = {
+        '4': 0, '5': 1, '6': 2, '7': 3, 'Q': 4, 'J': 5, 'K': 6, 'A': 7, '2': 8, '3': 9
+      };
+      const value = cardStr.substring(0, cardStr.length - 1);
+      const suit = cardStr.charAt(cardStr.length - 1);
+      
+      if (gameState.manilha && value === gameState.manilha) {
+        const ORDEM_NAIPE_MANILHA = {'♦': 0, '♠': 1, '♥': 2, '♣': 3};
+        return 100 + (ORDEM_NAIPE_MANILHA[suit as keyof typeof ORDEM_NAIPE_MANILHA] || 0);
+      }
+      
+      return ORDEM_CARTAS[value as keyof typeof ORDEM_CARTAS] || 0;
+    };
+    
+    // Group all cards on the table by their strength
+    const cardsByStrength = new Map<number, [number, string][]>();
+    
+    for (const [pid, tableCard] of gameState.mesa) {
+      const strength = getCardStrength(tableCard);
+      
+      if (!cardsByStrength.has(strength)) {
+        cardsByStrength.set(strength, []);
+      }
+      cardsByStrength.get(strength)!.push([pid, tableCard]);
+    }
+    
+    // Check if our specific card is cancelled
+    const cardStrength = getCardStrength(card);
+    const cardsWithSameStrength = cardsByStrength.get(cardStrength) || [];
+    
+    // If there are 2 or more cards with the same strength, they start cancelling each other
+    if (cardsWithSameStrength.length >= 2) {
+      // Check if our card is in a cancelling group
+      const ourCardIndex = cardsWithSameStrength.findIndex(([pid, tableCard]) => 
+        pid === playerIdOfCard && tableCard === card
+      );
+      
+      if (ourCardIndex !== -1) {
+        // Cards cancel in pairs: 0&1, 2&3, 4&5, etc.
+        // If we have an even number of cards (2, 4, 6...), all are cancelled
+        // If we have an odd number (3, 5, 7...), the last one isn't cancelled
+        const pairIndex = Math.floor(ourCardIndex / 2);
+        const totalPairs = Math.floor(cardsWithSameStrength.length / 2);
+        
+        // Our card is cancelled if it's in a complete pair
+        return pairIndex < totalPairs;
+      }
+    }
+    
+    return false;
   };
 
   // Function to determine if a card is the winning card in this round
@@ -1240,23 +1297,24 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
 
   return (
     <div className={styles.gameContainer} onClick={() => setLastActivityTime(Date.now())}>
+      <LanguageToggle />
       <div className={styles.header}>
-        <h2>Game Room: {gameId}</h2>
+        <h2>{t('game_room', { id: gameId })}</h2>
         <div className={styles.gameInfo}>
           {gameState?.current_hand !== undefined && gameState.current_hand >= 0 && (
-            <p className={styles.handInfo}>Hand: {gameState.current_hand + 1}</p>
+            <p className={styles.handInfo}>{t('hand', { number: gameState.current_hand + 1 })}</p>
           )}
           {gameState?.current_round !== undefined && gameState.current_round > 0 && gameState?.cartas !== undefined && gameState.cartas > 0 && (
-            <p className={styles.roundInfo}>Round: {gameState.current_round} of {gameState.cartas}</p>
+            <p className={styles.roundInfo}>{t('round', { current: gameState.current_round, total: gameState.cartas })}</p>
           )}
           {gameState?.multiplicador && gameState.multiplicador > 1 && (
             <p className={styles.multiplier}>
-              Multiplier: x{gameState.multiplicador}
+              {t('multiplier', { value: gameState.multiplicador })}
             </p>
           )}
         </div>
         <button onClick={onLeaveGame} className={styles.leaveButton}>
-          Leave Game
+          {t('leave_game')}
         </button>
       </div>
 
@@ -1285,7 +1343,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       )}
 
       <div className={styles.playersList}>
-        <h3>Players</h3>
+        <h3>{t('players')}</h3>
         <div className={styles.playersGrid}>
           {gameState?.players.map((id) => (
             <div 
@@ -1298,24 +1356,32 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
                 ${isPlayerWaiting(id) ? styles.waitingPlayer : ''}`}
             >
               <div className={styles.playerName}>
-                {gameState.player_names[id]} {id === playerId ? '(You)' : ''}
+                {gameState.player_names[id]} {id === playerId ? t('you') : ''}
                 {gameState.dealer === id && <span className={styles.dealerLabel}> 🎲</span>}
-                {isPlayerInactive(id) && <span className={styles.inactiveLabel}> ⚠️ Inactive</span>}
-                {isPlayerWaiting(id) && <span className={styles.waitingLabel}> (Waiting)</span>}
+                {isPlayerInactive(id) && <span className={styles.inactiveLabel}> ⚠️ {t('inactive')}</span>}
+                {isPlayerWaiting(id) && <span className={styles.waitingLabel}> ({t('waiting')})</span>}
               </div>
               <div className={styles.playerStats}>
                 <div className={styles.playerLives}>
                   {'❤️'.repeat(Math.max(0, gameState.vidas[id]))}
-                  {gameState.vidas[id] <= 0 && <span className={styles.eliminatedText}>Eliminated</span>}
+                  {gameState.vidas[id] <= 0 && <span className={styles.eliminatedText}>{t('eliminated')}</span>}
                 </div>
                 {gameState.palpites && gameState.palpites[id] !== undefined && (
                   <div className={styles.playerBet}>
-                    Bet: {gameState.palpites[id]}
+                    {t('bet')}: {gameState.palpites[id]}
                   </div>
                 )}
                 {gameState.vitorias && (
                   <div className={styles.playerWins}>
-                    Wins: {gameState.vitorias[id] || 0}
+                    {t('wins')}: {gameState.vitorias[id] || 0}
+                  </div>
+                )}
+                {gameState.palpites && gameState.palpites[id] !== undefined && gameState.vitorias && (
+                  <div className={styles.playerNeeds}>
+                    <div className={styles.needsLabel}>{t('needs_to_win')}</div>
+                    <div className={styles.needsValue}>
+                      {Math.max(0, gameState.palpites[id] - (gameState.vitorias[id] || 0))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1337,11 +1403,11 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
                   </span>
                 </div>
               </div>
-              <div className={styles.cardLabel}>Middle Card</div>
+              <div className={styles.cardLabel}>{t('middle_card')}</div>
             </div>
             <div className={styles.manilhaContainer}>
               <div className={styles.manilhaInfo}>
-                <span>Manilha: </span>
+                <span>{t('manilha')}: </span>
                 <span className={styles.manilhaValue}>{gameState.manilha}</span>
               </div>
             </div>
@@ -1351,7 +1417,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
         {/* Other players' cards in one-card hand */}
         {isOneCardHand && gameState?.estado === 'apostas' && gameState?.maos && (
           <div className={styles.otherPlayersCards}>
-            <h3>Other Players' Cards</h3>
+            <h3>{t('other_players_cards')}</h3>
             <div className={styles.tableCards}>
               {gameState.players
                 .filter(id => id !== playerId)
@@ -1378,7 +1444,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
 
         {gameState?.mesa && gameState.mesa.length > 0 && (
           <div className={styles.playedCards}>
-            <h3>Played Cards</h3>
+            <h3>{t('played_cards')}</h3>
             <div className={styles.tableCards}>
               {gameState.mesa.map(([pid, card], index) => (
                 <div key={index} className={styles.playedCardContainer}>
@@ -1417,20 +1483,20 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
             onClick={startRound} 
             className={styles.actionButton}
           >
-            Start New Hand
+            {t('start_game')}
           </button>
         </div>
       )}
 
       {gameState?.estado === 'aguardando' && playerId !== 1 && (
         <div className={styles.actionContainer}>
-          <p className={`${styles.waitingMsg} ${styles.nextHandNotification}`}>Waiting for host to start next hand...</p>
+          <p className={`${styles.waitingMsg} ${styles.nextHandNotification}`}>{t('waiting_to_start')}</p>
         </div>
       )}
 
       {gameState?.estado === 'apostas' && isPlayerTurn() && (
         <div className={styles.betContainer}>
-          <h3>Make Your Bet</h3>
+          <h3>{t('make_your_bet')}</h3>
           <div className={styles.betControls}>
             <input
               type="number"
@@ -1449,14 +1515,14 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
               className={`${styles.actionButton} ${isSubmittingBet ? styles.buttonDisabled : ''}`}
               disabled={isSubmittingBet}
             >
-              {isSubmittingBet ? 'Confirming...' : 'Confirm Bet'}
+              {isSubmittingBet ? t('submitting_bet') : t('bet')}
             </button>
           </div>
           {betError && (
-            <p className={styles.errorMessage}>{betError}</p>
+            <p className={styles.errorMessage}>{t('invalid_bet_error')}</p>
           )}
           <p className={styles.betHint}>
-            Total bets so far: {gameState.soma_palpites || 0} / {gameState.cartas}
+            {t('total_bets_so_far', { current: gameState.soma_palpites || 0, total: gameState.cartas || 0 })}
           </p>
         </div>
       )}
@@ -1465,7 +1531,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       {gameState?.maos && gameState.maos[playerId] && gameState.maos[playerId].length > 0 && 
        !isOneCardHand && (
         <div className={styles.handContainer}>
-          <h3>Your Hand</h3>
+          <h3>{t('your_hand')}</h3>
           <div className={styles.cards}>
             {gameState.maos[playerId].map((card, index) => (
               <button
@@ -1491,7 +1557,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
       {/* For one-card hand during playing phase, show hidden card */}
       {isOneCardHand && gameState?.estado === 'jogando' && gameState?.maos && gameState.maos[playerId] && (
         <div className={styles.handContainer}>
-          <h3>Your Hidden Card</h3>
+          <h3>{t('your_hand')}</h3>
           <div className={styles.cards}>
             <button
               onClick={() => isPlayerTurn() && !isPlayingCard ? playCard(0) : null}
@@ -1510,7 +1576,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
 
       {gameState?.palpites && Object.keys(gameState.palpites).length > 0 && (
         <div className={styles.betsInfo}>
-          <h3>All Bets</h3>
+          <h3>{t('betting_phase')}</h3>
           <div className={styles.betsList}>
             {Object.entries(gameState.palpites).map(([pid, betValue]) => (
               <div key={pid} className={styles.betItem}>
@@ -1524,27 +1590,31 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
 
       {gameState?.estado === 'terminado' && (
         <div className={styles.gameOver}>
-          <h2>Game Over!</h2>
+          <h2>{t('game_over')}</h2>
           <div className={styles.finalResults}>
+            <h3>{t('final_results')}</h3>
             {gameState.players.map(id => (
               <div 
                 key={id}
                 className={`${styles.resultRow} ${gameState.eliminados?.includes(id) ? styles.eliminated : styles.winner}`}
               >
                 <span className={styles.resultName}>
-                  {gameState.player_names[id]} {id === playerId ? '(You)' : ''}: 
+                  {gameState.player_names[id]} {id === playerId ? t('you') : ''}: 
                 </span>
                 <span className={styles.resultLives}>
-                  {gameState.vidas[id] <= 0 ? 'Eliminated' : `${gameState.vidas[id]} lives left`}
+                  {gameState.vidas[id] <= 0 ? t('eliminated') : `${gameState.vidas[id]} ${t('lives')}`}
                 </span>
+                {!gameState.eliminados?.includes(id) && (
+                  <span className={styles.winnerBadge}> 🏆 {t('winner')}</span>
+                )}
               </div>
             ))}
           </div>
           <button className={styles.actionButton} onClick={handleNewGame}>
-            New Game
+            {t('new_game')}
           </button>
           <button className={styles.leaveButton} onClick={onLeaveGame}>
-            Leave Game
+            {t('leave_game')}
           </button>
         </div>
       )}
