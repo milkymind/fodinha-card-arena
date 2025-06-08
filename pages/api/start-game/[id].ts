@@ -111,6 +111,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       first_player: firstPlayer,
       cartas: cardsPerPlayer,
       eliminados: [],
+      // Initialize tie-related flags
+      tie_in_previous_round: false,
+      tie_resolved_by_tiebreaker: false,
+      winning_card_played_by: undefined,
+      cancelled_cards: [],
       // For tracking player activity
       last_activity: Object.fromEntries(players.map(pid => [pid, Date.now()])),
     };

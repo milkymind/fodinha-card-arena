@@ -257,6 +257,90 @@ export default function Home() {
           </button>
         </div>
       )}
+      
+      {/* Rules/Tutorial Section */}
+      <div className={styles.section}>
+        <h2>🎯 How to Play Fodinha</h2>
+        <div className={styles.rulesSection}>
+          
+          <h3>📋 Game Overview</h3>
+          <p>
+            Fodinha is a Brazilian trick-taking card game where players try to predict exactly how many tricks (rounds) they will win. 
+            The goal is to make your exact bet - no more, no less!
+          </p>
+          
+          <h3>🎮 Game Setup</h3>
+          <ul>
+            <li><strong>Players:</strong> 2-6 players</li>
+            <li><strong>Lives:</strong> Each player starts with 3, 5, or 7 lives</li>
+            <li><strong>Cards:</strong> Standard 52-card deck with special card hierarchy</li>
+          </ul>
+          
+          <div className={styles.cardHierarchy}>
+            <h3>🃏 Card Hierarchy (Strongest to Weakest)</h3>
+            <ol>
+              <li><strong>Manilha:</strong> The card that comes after the middle card (changes each hand)</li>
+              <li><strong>Aces (A)</strong></li>
+              <li><strong>Kings (K)</strong></li>
+              <li><strong>Jacks (J)</strong></li>
+              <li><strong>Queens (Q)</strong></li>
+              <li><strong>7, 6, 5, 4</strong></li>
+              <li><strong>3, 2</strong> (weakest)</li>
+            </ol>
+          </div>
+          
+          <h3>🎯 How to Play</h3>
+          <div style={{ marginLeft: '20px' }}>
+            <h4>1. Betting Phase</h4>
+            <ul>
+              <li>Look at your cards and predict how many tricks you'll win</li>
+              <li><strong>Important:</strong> The last player cannot make a bet that would make the total bets equal to the number of cards</li>
+              <li>Example: In a 3-card hand, if bets total 2, the last player cannot bet 1</li>
+            </ul>
+            
+            <h4>2. Playing Phase</h4>
+            <ul>
+              <li>Players take turns playing one card</li>
+              <li>The highest card wins the trick (round)</li>
+              <li>The winner of each trick leads the next one</li>
+              <li><strong>Card Cancellation:</strong> If two players play cards of the same strength, they cancel each other out</li>
+            </ul>
+            
+            <h4>3. Scoring</h4>
+            <ul>
+              <li><strong>Exact Match:</strong> If you win exactly what you bet, you keep all your lives</li>
+              <li><strong>Wrong Guess:</strong> If you win more or fewer tricks than you bet, you lose 1 life</li>
+            </ul>
+          </div>
+          
+          <h3>🏆 Winning & Elimination</h3>
+          <ul>
+            <li>When you reach 0 lives, you're eliminated</li>
+            <li>The last player remaining wins the game!</li>
+            <li>Games get progressively harder as the number of cards increases, then decreases</li>
+          </ul>
+          
+          <h3>💡 Strategy Tips</h3>
+          <ul>
+            <li><strong>Count the Manilhas:</strong> There are 4 manilhas (one per suit) - track them carefully</li>
+            <li><strong>Watch the Bets:</strong> Use other players' bets to estimate the strength of their hands</li>
+            <li><strong>Card Memory:</strong> Remember which high cards have been played</li>
+            <li><strong>Final Player Advantage:</strong> The last player to bet has more information but also restrictions</li>
+          </ul>
+          
+          <h3>👑 Special Rules</h3>
+          <ul>
+            <li><strong>Manilha Suits:</strong> In ties, manilha suits are ranked: ♣ (lowest) → ♥ → ♠ → ♦ (highest)</li>
+            <li><strong>Card Cancellation:</strong> Cards of the same strength cancel in pairs as they're played</li>
+            <li><strong>Crown Highlight:</strong> The current winning card in each trick is highlighted with a crown 👑</li>
+          </ul>
+          
+          <div className={styles.importantNote}>
+            <strong>💡 Pro Tip:</strong> Take your time in the betting phase! Your success depends on accurately predicting your performance.
+          </div>
+          
+        </div>
+      </div>
     </div>
   );
 } 

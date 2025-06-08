@@ -96,6 +96,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   gameState.mesa = [];
   gameState.eliminados = gameState.eliminados || [];
   
+  // Reset tie flags for new round/hand
+  gameState.tie_in_previous_round = false;
+  gameState.tie_resolved_by_tiebreaker = false;
+  gameState.winning_card_played_by = undefined;
+  gameState.cancelled_cards = [];
+  
   // Increment the hand counter if we're starting a new hand (not continuing a round)
   if (gameState.estado === 'aguardando') {
     gameState.current_hand = (gameState.current_hand || 0) + 1;

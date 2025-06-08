@@ -108,6 +108,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Clear the winning card flag for the next round
         lobby.gameState.winning_card_played_by = undefined;
         
+        // Reset tie flags for the new round (important for crown highlighting)
+        lobby.gameState.tie_in_previous_round = false;
+        lobby.gameState.cancelled_cards = [];
+        
         // Clear the table and move to the next round
         lobby.gameState.mesa = [];
         lobby.gameState.estado = 'jogando';
