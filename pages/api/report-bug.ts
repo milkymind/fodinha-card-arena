@@ -2,7 +2,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 
 interface BugReportData {
   bugDescription: string;
-  stepsToReproduce?: string;
   gameId?: string;
   playerId?: number;
   userAgent: string;
@@ -81,12 +80,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           description: `**Bug Description:**\n${bugReportData.bugDescription}`,
           color: 0xff4444, // Red color for bug reports
           fields: [
-            // Add steps to reproduce if provided
-            ...(bugReportData.stepsToReproduce ? [{
-              name: '🔄 Steps to Reproduce',
-              value: bugReportData.stepsToReproduce,
-              inline: false
-            }] : []),
             // Add game context if available
             ...(bugReportData.gameId ? [{
               name: '🎮 Game ID',
