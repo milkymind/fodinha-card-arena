@@ -3,6 +3,7 @@ import { SocketContext } from '../../contexts/SocketContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import styles from '../styles/Game.module.css';
 import LanguageToggle from './LanguageToggle';
+import BugReportButton from './BugReportButton';
 
 interface GameProps {
   gameId: string;
@@ -1333,6 +1334,7 @@ export default function Game({ gameId, playerId, onLeaveGame }: GameProps) {
   return (
     <div className={styles.gameContainer} onClick={() => setLastActivityTime(Date.now())}>
       <LanguageToggle />
+      <BugReportButton gameId={gameId} playerId={playerId} />
       <div className={styles.header}>
         <h2>{t('game_room', { id: gameId })}</h2>
         <div className={styles.gameInfo}>

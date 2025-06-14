@@ -3,6 +3,7 @@ import styles from '../styles/Home.module.css';
 import Game from '../src/components/Game';
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageToggle from '../src/components/LanguageToggle';
+import BugReportButton from '../src/components/BugReportButton';
 
 interface LobbyInfo {
   players: { id: number; name: string }[];
@@ -148,6 +149,7 @@ export default function Home() {
     return (
       <div className={styles.container}>
         <LanguageToggle />
+        <BugReportButton gameId={gameId} playerId={playerId} />
         <h2>{t('lobby', { id: gameId })}</h2>
         <div className={styles.section}>
           <h3>{t('players_count', { current: lobbyInfo.players.length, max: lobbyInfo.maxPlayers })}</h3>
@@ -177,6 +179,7 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <LanguageToggle />
+      <BugReportButton />
       <h1 className={styles.title}>{t('title')}</h1>
       {error && (
         <div className={styles.error}>
