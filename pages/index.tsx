@@ -280,15 +280,12 @@ export default function Home() {
           
           <div className={styles.cardHierarchy}>
             <h3>{t('card_hierarchy')}</h3>
-            <ol>
-              <li><strong>{t('card_hierarchy_manilha')}</strong></li>
-              <li><strong>{t('card_hierarchy_aces')}</strong></li>
-              <li><strong>{t('card_hierarchy_kings')}</strong></li>
-              <li><strong>{t('card_hierarchy_jacks')}</strong></li>
-              <li><strong>{t('card_hierarchy_queens')}</strong></li>
-              <li><strong>{t('card_hierarchy_middle')}</strong></li>
-              <li><strong>{t('card_hierarchy_low')}</strong></li>
-            </ol>
+            <div className={styles.hierarchyProgression}>
+              <p><strong>{t('card_hierarchy_progression')}</strong></p>
+              <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                {t('card_hierarchy_note')}
+              </p>
+            </div>
           </div>
           
           <h3>{t('how_to_play_section')}</h3>
